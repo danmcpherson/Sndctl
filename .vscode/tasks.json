@@ -2,21 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "clean (functions)",
-      "command": "dotnet",
-      "args": [
-        "clean",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
-      "type": "process",
-      "problemMatcher": "$msCompile",
-      "options": {
-        "cwd": "${workspaceFolder}/api"
-      }
-    },
-    {
-      "label": "build (functions)",
+      "label": "build",
       "command": "dotnet",
       "args": [
         "build",
@@ -24,7 +10,6 @@
         "/consoleloggerparameters:NoSummary"
       ],
       "type": "process",
-      "dependsOn": "clean (functions)",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -35,12 +20,40 @@
       }
     },
     {
-      "label": "clean release (functions)",
+      "label": "run",
+      "command": "dotnet",
+      "args": [
+        "run"
+      ],
+      "type": "process",
+      "dependsOn": "build",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "csharp",
+        "pattern": {
+          "regexp": "^(?:.*?\\s)?(.*)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(\\w+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Building.*$",
+          "endsPattern": "^.*Application started.*$"
+        }
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/api"
+      }
+    },
+    {
+      "label": "clean",
       "command": "dotnet",
       "args": [
         "clean",
-        "--configuration",
-        "Release",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
@@ -51,7 +64,7 @@
       }
     },
     {
-      "label": "publish (functions)",
+      "label": "publish",
       "command": "dotnet",
       "args": [
         "publish",
@@ -61,21 +74,10 @@
         "/consoleloggerparameters:NoSummary"
       ],
       "type": "process",
-      "dependsOn": "clean release (functions)",
       "problemMatcher": "$msCompile",
       "options": {
         "cwd": "${workspaceFolder}/api"
       }
-    },
-    {
-      "type": "func",
-      "dependsOn": "build (functions)",
-      "options": {
-        "cwd": "${workspaceFolder}/api/bin/Debug/net8.0"
-      },
-      "command": "host start",
-      "isBackground": true,
-      "problemMatcher": "$func-dotnet-watch"
     }
   ]
 }

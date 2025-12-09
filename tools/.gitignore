@@ -1,4 +1,0 @@
-# Ignore Azure configuration files
-.azure-config
-*.env
-*.local

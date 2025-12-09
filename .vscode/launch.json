@@ -2,10 +2,25 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Attach to .NET Functions",
+      "name": "Launch API",
       "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:azureFunctions.pickProcess}"
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/api/bin/Debug/net8.0/api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/api",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
     }
   ]
 }
