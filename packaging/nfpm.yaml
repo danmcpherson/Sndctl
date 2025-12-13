@@ -1,7 +1,7 @@
 name: sonos-sound-hub
-arch: "{{ .Env.ARCH }}"
+arch: "$ARCH"
 platform: linux
-version: "{{ .Env.VERSION }}"
+version: "$VERSION"
 section: utils
 priority: optional
 maintainer: Sonos Sound Hub <noreply@example.com>
@@ -13,7 +13,7 @@ depends:
   - pipx
   - soco-cli
 contents:
-  - src: "publish/{{ .Env.RID }}/"
+  - src: "publish/$RID/"
     dst: /opt/sonos-sound-hub
     type: dir
   - src: /opt/sonos-sound-hub/api
