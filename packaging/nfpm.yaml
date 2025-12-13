@@ -8,10 +8,8 @@ maintainer: Sonos Sound Hub <noreply@example.com>
 description: Self-hosted Sonos control UI and API for Raspberry Pi
 license: MIT
 depends:
-  - dotnet-runtime-8.0
   - python3
   - pipx
-  - soco-cli
 contents:
   - src: "publish/$RID/"
     dst: /opt/sonos-sound-hub
