@@ -51,21 +51,6 @@ Follow these steps on a Raspberry Pi OS 64-bit install (Bullseye/Bookworm):
    ./api
    ```
 
-### Install via apt (Pi-native, when repo is available)
-
-Once an apt repo is published with `.deb` packages:
-
-```bash
-curl -fsSL https://example.com/sonos-sound-hub.gpg | sudo tee /etc/apt/trusted.gpg.d/sonos-sound-hub.gpg >/dev/null
-echo "deb [arch=arm64] https://example.com/apt stable main" | sudo tee /etc/apt/sources.list.d/sonos-sound-hub.list
-sudo apt update
-sudo apt install sonos-sound-hub
-```
-
-- Replace `example.com` with the hosted repo URL.
-- Use `arch=armhf` for 32-bit Pi OS.
-- soco-cli remains a prerequisite; install it separately before running the app.
-
 5. **Open the UI**
    - On the Pi: `http://localhost:5000`
    - From another device: `http://<pi-hostname-or-ip>:5000`
