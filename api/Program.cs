@@ -3,8 +3,11 @@ using SonosSoundHub.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Listen on all interfaces for Pi deployment
+// Listen on all interfaces for Pi deployment and set content/web roots to the install dir
+var baseDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
 builder.WebHost.UseUrls("http://0.0.0.0:5000");
+builder.WebHost.UseContentRoot(baseDir);
+builder.WebHost.UseWebRoot(Path.Combine(baseDir, "wwwroot"));
 
 // Add services
 builder.Services.AddControllers()
