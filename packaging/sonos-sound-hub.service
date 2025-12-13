@@ -10,7 +10,6 @@ WorkingDirectory=/opt/sonos-sound-hub
 ExecStart=/opt/sonos-sound-hub/api
 Restart=always
 RestartSec=10
-User=pi
 Environment=ASPNETCORE_ENVIRONMENT=Production
 
 [Install]
