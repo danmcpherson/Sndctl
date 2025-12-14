@@ -107,11 +107,12 @@ Edit `api/appsettings.json` (or `appsettings.Development.json`) to adjust runtim
   "DataDirectory": "data",
   "SocoCli": {
     "Port": 8000,
-    "MacrosFile": "data/macros.txt",
     "UseLocalCache": false
   }
 }
 ```
+
+Note: The macros file path is automatically derived from `DataDirectory` (always `data/macros.txt`).
 
 - Database lives under `data/` (gitignored). Created automatically on first run.
 - Adjust `SocoCli:Port` if 8000 is in use.

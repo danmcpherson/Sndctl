@@ -110,18 +110,17 @@ public class SocoCliService
 
             _isStarting = true;
 
-            var macrosFile = _configuration.GetValue<string>("SocoCli:MacrosFile", "data/macros.txt");
+            // Use the same path resolution approach as MacroService for consistency
+            var dataDir = _configuration.GetValue<string>("DataDirectory") ?? "data";
+            var absoluteMacrosPath = Path.GetFullPath(Path.Combine(dataDir, "macros.txt"));
             var useLocalCache = _configuration.GetValue<bool>("SocoCli:UseLocalCache", false);
 
             var arguments = $"--port {_port}";
             
-            if (!string.IsNullOrEmpty(macrosFile))
-            {
-                // Convert to absolute path to ensure soco-cli uses the same file as MacroService
-                var absoluteMacrosPath = Path.GetFullPath(macrosFile);
-                arguments += $" --macros \"{absoluteMacrosPath}\"";
-                _logger.LogInformation("Using macros file: {MacrosPath}", absoluteMacrosPath);
-            }
+            // Always pass the macros file path
+            arguments += $" --macros \"{absoluteMacrosPath}\"";
+            _logger.LogInformation("Using macros file: {MacrosPath}", absoluteMacrosPath);
+            
 
             if (useLocalCache)
             {
