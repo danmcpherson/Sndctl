@@ -71,6 +71,14 @@ app.UseStaticFiles();
 // API routes - must be BEFORE fallback
 app.MapControllers();
 
+// Explicit route for mobile app
+app.MapGet("/app", async context =>
+{
+    context.Response.ContentType = "text/html";
+    var appPath = Path.Combine(app.Environment.WebRootPath, "app.html");
+    await context.Response.SendFileAsync(appPath);
+});
+
 // Fallback to index.html for SPA routing (only for non-API routes)
 app.MapFallbackToFile("index.html");
 

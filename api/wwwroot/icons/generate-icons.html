@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate App Icons</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f5f5f5; }
+        h1 { margin-bottom: 20px; }
+        .icon-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .icon-item { background: white; padding: 15px; border-radius: 8px; text-align: center; }
+        canvas { display: block; margin: 0 auto 10px; border-radius: 20%; }
+        button { padding: 8px 16px; cursor: pointer; }
+        .instructions { background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Generate Sonos Hub App Icons</h1>
+    <div class="instructions">
+        <p><strong>Instructions:</strong> Click each "Download" button to save the icon. Then place the files in the <code>wwwroot/icons/</code> folder.</p>
+    </div>
+    <div class="icon-grid" id="icons"></div>
+
+    <script>
+        const sizes = [
+            { name: 'app-icon-180.png', size: 180 },
+            { name: 'app-icon-167.png', size: 167 },
+            { name: 'app-icon-152.png', size: 152 },
+            { name: 'app-icon-120.png', size: 120 },
+            { name: 'app-icon-32.png', size: 32 }
+        ];
+
+        function drawIcon(ctx, size) {
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(1, '#16213e');
+            
+            // Rounded rectangle background
+            const radius = size * 0.1875; // iOS-style rounded corners
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.fill();
+            
+            // Music note icon
+            const scale = size / 24;
+            const offsetX = size * 0.2;
+            const offsetY = size * 0.15;
+            
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale * 0.6, scale * 0.6);
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.fillStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Staff line
+            ctx.beginPath();
+            ctx.moveTo(9, 18);
+            ctx.lineTo(9, 5);
+            ctx.lineTo(21, 3);
+            ctx.lineTo(21, 16);
+            ctx.stroke();
+            
+            // Left circle
+            ctx.beginPath();
+            ctx.arc(6, 18, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right circle
+            ctx.beginPath();
+            ctx.arc(18, 16, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        const container = document.getElementById('icons');
+        
+        sizes.forEach(({ name, size }) => {
+            const div = document.createElement('div');
+            div.className = 'icon-item';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            drawIcon(ctx, size);
+            
+            const label = document.createElement('div');
+            label.textContent = `${name} (${size}x${size})`;
+            
+            const btn = document.createElement('button');
+            btn.textContent = 'Download';
+            btn.onclick = () => {
+                const link = document.createElement('a');
+                link.download = name;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            };
+            
+            div.appendChild(canvas);
+            div.appendChild(label);
+            div.appendChild(btn);
+            container.appendChild(div);
+        });
+    </script>
+</body>
+</html>

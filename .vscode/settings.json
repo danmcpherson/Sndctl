@@ -6,5 +6,6 @@
     "azureFunctions.preDeployTask": "publish (functions)",
     "azurite.location": ".azurite",
     "chat.agent.maxRequests": 100,
-    "sarif-viewer.connectToGithubCodeScanning": "off"
+    "sarif-viewer.connectToGithubCodeScanning": "off",
+    "codeQL.githubDatabase.download": "never"
 }
