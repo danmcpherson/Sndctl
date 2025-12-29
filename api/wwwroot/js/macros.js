@@ -4,6 +4,7 @@
 window.macros = {
     currentMacros: [],
     editingMacro: null,
+    originalMacroName: null, // Track original name for rename detection
     actions: [], // Current actions in the builder
     dropdowns: {}, // Store dropdown instances
 
@@ -197,6 +198,7 @@ window.macros = {
     create() {
         this.initCommands();
         this.editingMacro = null;
+        this.originalMacroName = null; // No original name for new macros
         this.actions = [];
         document.getElementById('modal-title').textContent = 'Create Macro';
         document.getElementById('macro-name').value = '';
@@ -217,13 +219,14 @@ window.macros = {
         try {
             const macro = await api.getMacro(macroName);
             this.editingMacro = macro;
+            this.originalMacroName = macro.name; // Store original name for rename detection
 
             document.getElementById('modal-title').textContent = 'Edit Macro';
             document.getElementById('macro-name').value = macro.name;
             document.getElementById('macro-description').value = macro.description || '';
             document.getElementById('macro-category').value = macro.category || '';
             document.getElementById('macro-definition').value = macro.definition;
-            document.getElementById('macro-name').disabled = true;
+            document.getElementById('macro-name').disabled = false;
 
             // Parse existing definition into actions
             this.actions = this.parseDefinition(macro.definition);
@@ -698,8 +701,21 @@ window.macros = {
         };
 
         try {
+            // Check if we're renaming an existing macro
+            const isRenaming = this.originalMacroName && 
+                              this.originalMacroName !== name;
+            
+            // If renaming, delete the old macro first
+            if (isRenaming) {
+                await api.deleteMacro(this.originalMacroName);
+            }
+            
             await api.saveMacro(macro);
-            showToast(`Macro '${name}' saved successfully`, 'success');
+            
+            const message = isRenaming 
+                ? `Macro renamed from '${this.originalMacroName}' to '${name}'` 
+                : `Macro '${name}' saved successfully`;
+            showToast(message, 'success');
             toggleMacroModal(false);
             await this.load();
         } catch (error) {
