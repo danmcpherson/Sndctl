@@ -65,8 +65,26 @@ if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 }
 
-// Serve static files from wwwroot
-app.UseStaticFiles();
+// Serve static files from wwwroot with cache control
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Disable caching for HTML, JS, CSS files to ensure updates are picked up
+        var path = ctx.File.Name.ToLowerInvariant();
+        if (path.EndsWith(".html") || path.EndsWith(".js") || path.EndsWith(".css") || path.EndsWith(".json"))
+        {
+            ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            ctx.Context.Response.Headers["Pragma"] = "no-cache";
+            ctx.Context.Response.Headers["Expires"] = "0";
+        }
+        else
+        {
+            // Cache other assets (images, icons) for 1 day
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=86400";
+        }
+    }
+});
 
 // API routes - must be BEFORE fallback
 app.MapControllers();
@@ -96,6 +114,10 @@ app.Map("/app", async context =>
     
     if (fileInfo.Exists)
     {
+        // Prevent caching to ensure updates are picked up
+        context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["Expires"] = "0";
         context.Response.ContentType = "text/html; charset=utf-8";
         await using var stream = fileInfo.CreateReadStream();
         await stream.CopyToAsync(context.Response.Body);

@@ -4,6 +4,7 @@
  */
 window.mobileApp = {
     currentTab: 'macros-tab',
+    currentView: 'list',
     macros: [],
     speakers: [],
     speakerStates: {},
@@ -11,12 +12,19 @@ window.mobileApp = {
     isUpdating: false,
     batteryWarningDismissed: false,
     batteryWarningDismissedUntil: null,
+    installPromptDismissed: false,
 
     /**
      * Initialize the mobile app
      */
     async init() {
         console.log('Initializing Sonos Sound Hub Mobile App');
+        
+        // Load saved preferences
+        this.loadPreferences();
+        
+        // Check if should show install prompt
+        this.checkInstallPrompt();
         
         // Load version info
         this.loadVersion();
@@ -32,6 +40,97 @@ window.mobileApp = {
         
         // Start polling for speaker updates
         this.startPolling();
+    },
+
+    /**
+     * Load saved user preferences from localStorage
+     */
+    loadPreferences() {
+        try {
+            const savedView = localStorage.getItem('sonos-hub-view');
+            if (savedView === 'list' || savedView === 'tile') {
+                this.currentView = savedView;
+                this.applyViewPreference();
+            }
+            
+            const installDismissed = localStorage.getItem('sonos-hub-install-dismissed');
+            if (installDismissed) {
+                this.installPromptDismissed = true;
+            }
+        } catch (e) {
+            console.debug('Could not load preferences:', e);
+        }
+    },
+
+    /**
+     * Apply the current view preference to the UI
+     */
+    applyViewPreference() {
+        const macrosList = document.getElementById('macros-list');
+        const listBtn = document.querySelector('.view-toggle-btn[data-view="list"]');
+        const tileBtn = document.querySelector('.view-toggle-btn[data-view="tile"]');
+        
+        if (macrosList) {
+            macrosList.classList.toggle('tile-view', this.currentView === 'tile');
+        }
+        if (listBtn && tileBtn) {
+            listBtn.classList.toggle('active', this.currentView === 'list');
+            tileBtn.classList.toggle('active', this.currentView === 'tile');
+        }
+    },
+
+    /**
+     * Set the macros view (list or tile)
+     * @param {string} view - 'list' or 'tile'
+     */
+    setView(view) {
+        this.currentView = view;
+        this.applyViewPreference();
+        
+        try {
+            localStorage.setItem('sonos-hub-view', view);
+        } catch (e) {
+            console.debug('Could not save view preference:', e);
+        }
+    },
+
+    /**
+     * Check if we should show the install prompt
+     */
+    checkInstallPrompt() {
+        // Don't show if already dismissed
+        if (this.installPromptDismissed) return;
+        
+        // Don't show if already running as standalone app
+        if (window.navigator.standalone === true) return;
+        if (window.matchMedia('(display-mode: standalone)').matches) return;
+        
+        // Only show on iOS Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+        
+        if (isIOS && isSafari) {
+            const prompt = document.getElementById('install-prompt');
+            if (prompt) {
+                prompt.classList.remove('hidden');
+            }
+        }
+    },
+
+    /**
+     * Dismiss the install prompt
+     */
+    dismissInstallPrompt() {
+        const prompt = document.getElementById('install-prompt');
+        if (prompt) {
+            prompt.classList.add('hidden');
+        }
+        this.installPromptDismissed = true;
+        try {
+            localStorage.setItem('sonos-hub-install-dismissed', 'true');
+        } catch (e) {
+            console.debug('Could not save install prompt state:', e);
+        }
     },
 
     /**
@@ -152,6 +251,9 @@ window.mobileApp = {
                 </div>
             </div>
         `).join('');
+        
+        // Apply view preference after rendering
+        this.applyViewPreference();
     },
 
     /**
@@ -307,15 +409,15 @@ window.mobileApp = {
                         </button>
                         <button class="control-btn play-pause ${isPlaying ? 'playing' : ''}" 
                                 onclick="mobileApp.togglePlayPause('${this.escapeJs(speaker)}')" 
-                                title="${isPlaying ? 'Pause' : 'Play'}">
+                                aria-label="${isPlaying ? 'Pause' : 'Play'}">
                             ${isPlaying ? `
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <rect x="6" y="4" width="4" height="16"></rect>
-                                    <rect x="14" y="4" width="4" height="16"></rect>
+                                <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
+                                    <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
                                 </svg>
                             ` : `
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
                                 </svg>
                             `}
                         </button>
