@@ -4,11 +4,14 @@
  */
 window.mobileApp = {
     currentTab: 'macros-tab',
-    currentView: 'list',
+    currentView: 'tile',
     macros: [],
     speakers: [],
     speakerStates: {},
+    speakerGroups: {},  // Maps speaker names to their group info
     updateInterval: null,
+    versionCheckInterval: null,
+    currentVersion: null,
     isUpdating: false,
     batteryWarningDismissed: false,
     batteryWarningDismissedUntil: null,
@@ -22,12 +25,16 @@ window.mobileApp = {
         
         // Load saved preferences
         this.loadPreferences();
+
+        // Layout debug to diagnose sticky header behavior
+        this.initLayoutDebug();
         
         // Check if should show install prompt
         this.checkInstallPrompt();
         
         // Load version info
-        this.loadVersion();
+        await this.loadVersion();
+        this.startVersionWatcher();
         
         // Ensure server is running
         await this.ensureServerRunning();
@@ -40,6 +47,34 @@ window.mobileApp = {
         
         // Start polling for speaker updates
         this.startPolling();
+    },
+
+    /**
+     * Debug sticky header and scroll containers
+     */
+    initLayoutDebug() {
+        const header = document.querySelector('.app-header-mobile');
+        const app = document.querySelector('.mobile-app');
+        const content = document.querySelector('.app-content');
+        const logState = (label) => {
+            if (!header) return;
+            const rect = header.getBoundingClientRect();
+            const pos = window.getComputedStyle(header).position;
+            console.log('[LayoutDebug]', label, {
+                windowScrollY: window.scrollY,
+                appScrollTop: app?.scrollTop,
+                contentScrollTop: content?.scrollTop,
+                headerTop: rect.top,
+                headerBottom: rect.bottom,
+                headerPosition: pos
+            });
+        };
+        ['scroll', 'resize'].forEach(evt => {
+            window.addEventListener(evt, () => logState(evt));
+            app?.addEventListener(evt, () => logState(`app-${evt}`));
+            content?.addEventListener(evt, () => logState(`content-${evt}`));
+        });
+        logState('init');
     },
 
     /**
@@ -159,16 +194,43 @@ window.mobileApp = {
      */
     async loadVersion() {
         try {
-            const response = await fetch('/api/version');
-            if (response.ok) {
-                const data = await response.json();
+            const version = await this.fetchVersion();
+            if (version) {
+                this.currentVersion = this.currentVersion || version;
                 const versionEl = document.getElementById('app-version');
-                if (versionEl && data.version) {
-                    versionEl.textContent = `v${data.version}`;
+                if (versionEl) {
+                    versionEl.textContent = `v${version}`;
                 }
             }
         } catch (error) {
             console.debug('Could not load version:', error);
+        }
+    },
+
+    async fetchVersion() {
+        const response = await fetch('/api/version', { cache: 'no-store' });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.version || null;
+    },
+
+    startVersionWatcher() {
+        if (this.versionCheckInterval) {
+            clearInterval(this.versionCheckInterval);
+        }
+        this.versionCheckInterval = setInterval(() => this.checkForUpdate(), 60000);
+    },
+
+    async checkForUpdate() {
+        try {
+            const latest = await this.fetchVersion();
+            if (!latest || !this.currentVersion) return;
+            if (latest !== this.currentVersion) {
+                this.showToast('Update available, reloading…', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            }
+        } catch (error) {
+            console.debug('Version check failed:', error);
         }
     },
 
@@ -322,27 +384,33 @@ window.mobileApp = {
     /**
      * Update all speaker states
      */
+    /**
+     * Updates all speakers sequentially to avoid overwhelming the soco-cli API
+     * (matches desktop behavior - soco-cli doesn't handle concurrent requests well)
+     */
     async updateAllSpeakers() {
         if (this.isUpdating || this.speakers.length === 0) return;
         this.isUpdating = true;
+        console.log('[MobileApp] updateAllSpeakers started, speakers:', this.speakers);
         
         try {
-            const statePromises = this.speakers.map(async (speaker) => {
+            // Sequential requests - soco-cli can't handle parallel requests properly
+            for (const speaker of this.speakers) {
                 try {
-                    // getSpeakerInfo already includes volume
-                    const info = await api.getSpeakerInfo(speaker).catch(() => null);
+                    const info = await api.getSpeakerInfo(speaker);
+                    console.log(`[MobileApp] Raw API response for "${speaker}":`, JSON.stringify(info, null, 2));
                     const volume = info?.volume ?? 0;
-                    return { speaker, info, volume };
+                    this.speakerStates[speaker] = { info, volume };
                 } catch (error) {
                     console.error(`Failed to get info for ${speaker}:`, error);
-                    return { speaker, info: null, volume: 0 };
+                    this.speakerStates[speaker] = { info: null, volume: 0 };
                 }
-            });
+            }
             
-            const states = await Promise.all(statePromises);
-            states.forEach(({ speaker, info, volume }) => {
-                this.speakerStates[speaker] = { info, volume };
-            });
+            console.log('[MobileApp] All speaker states collected');
+            
+            // Fetch group info (like desktop)
+            await this.updateGroupInfo();
             
             this.renderSpeakers();
             this.checkBatteryWarnings();
@@ -354,7 +422,7 @@ window.mobileApp = {
     },
 
     /**
-     * Render the speakers list
+     * Render the speakers list with grouping and sorting
      */
     renderSpeakers() {
         const container = document.getElementById('speakers-list');
@@ -374,62 +442,158 @@ window.mobileApp = {
             return;
         }
         
-        container.innerHTML = this.speakers.map(speaker => {
-            const state = this.speakerStates[speaker] || {};
-            const info = state.info || {};
-            const volume = info.volume ?? state.volume ?? 0;
-            const isPlaying = info.playbackState === 'PLAYING';
-            const trackTitle = info.currentTrack || 'No track';
-            const groupInfo = info.groupName && info.groupName !== speaker 
-                ? info.groupName 
-                : null;
+        // Build panels: grouped speakers become one panel, ungrouped speakers are individual
+        const panels = this.buildSpeakerPanels();
+        
+        // Sort panels: playing first, then paused, then stopped
+        // Within each state, sort alphabetically by coordinator name for consistency
+        panels.sort((a, b) => {
+            const stateOrder = { 'playing': 0, 'paused': 1, 'stopped': 2 };
+            const aOrder = stateOrder[a.playbackState] ?? 2;
+            const bOrder = stateOrder[b.playbackState] ?? 2;
+            if (aOrder !== bOrder) {
+                return aOrder - bOrder;
+            }
+            // Same state - sort alphabetically
+            return a.coordinator.localeCompare(b.coordinator);
+        });
+        
+        console.log('[MobileApp] Sorted panels:', panels.map(p => ({ 
+            coordinator: p.coordinator, 
+            state: p.playbackState,
+            stateOrder: { 'playing': 0, 'paused': 1, 'stopped': 2 }[p.playbackState] ?? 2
+        })));
+        
+        container.innerHTML = panels.map(panel => this.renderPanel(panel)).join('');
+    },
+
+    /**
+     * Build speaker panels - grouped speakers become one panel
+     */
+    buildSpeakerPanels() {
+        const panels = [];
+        const processedSpeakers = new Set();
+        
+        for (const speaker of this.speakers) {
+            if (processedSpeakers.has(speaker)) continue;
             
-            return `
-                <div class="speaker-card" data-speaker="${this.escapeHtml(speaker)}">
-                    <div class="speaker-header">
-                        <span class="speaker-name">
-                            ${this.escapeHtml(speaker)}
-                            ${groupInfo ? `<span class="group-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>${this.escapeHtml(groupInfo)}</span>` : ''}
-                        </span>
-                        <span class="speaker-status ${isPlaying ? 'playing' : ''}">
-                            ${isPlaying ? '● Playing' : '○ Stopped'}
-                        </span>
-                    </div>
-                    
-                    <div class="speaker-track-info">
-                        <div class="track-title">${this.escapeHtml(trackTitle)}</div>
-                    </div>
-                    
-                    <div class="speaker-controls">
-                        <button class="control-btn" onclick="mobileApp.previousTrack('${this.escapeJs(speaker)}')" title="Previous">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="19 20 9 12 19 4 19 20"></polygon>
-                                <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
-                            </svg>
-                        </button>
-                        <button class="control-btn play-pause ${isPlaying ? 'playing' : ''}" 
-                                onclick="mobileApp.togglePlayPause('${this.escapeJs(speaker)}')" 
-                                aria-label="${isPlaying ? 'Pause' : 'Play'}">
-                            ${isPlaying ? `
-                                <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
-                                    <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
-                                </svg>
-                            ` : `
-                                <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
-                                </svg>
-                            `}
-                        </button>
-                        <button class="control-btn" onclick="mobileApp.nextTrack('${this.escapeJs(speaker)}')" title="Next">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                                <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
-                            </svg>
-                        </button>
-                    </div>
-                    
+            const groupInfo = this.speakerGroups[speaker];
+            
+            if (groupInfo && groupInfo.members && groupInfo.members.length > 1) {
+                // This speaker is in a group - create a group panel
+                const coordinator = groupInfo.coordinator;
+                const members = groupInfo.members;
+                
+                // Mark all members as processed
+                members.forEach(m => processedSpeakers.add(m));
+                
+                // Get coordinator's state for the panel
+                const coordState = this.speakerStates[coordinator] || {};
+                const coordInfo = coordState.info || {};
+                const playbackState = this.formatPlaybackState(coordInfo.playbackState);
+                const trackInfo = this.sanitizeTrackInfo(coordInfo.currentTrack);
+                
+                panels.push({
+                    type: 'group',
+                    coordinator: coordinator,
+                    members: members,
+                    playbackState: playbackState,
+                    trackInfo: trackInfo,
+                    volume: coordInfo.volume ?? 0
+                });
+            } else {
+                // Ungrouped speaker - individual panel
+                processedSpeakers.add(speaker);
+                
+                const state = this.speakerStates[speaker] || {};
+                const info = state.info || {};
+                const playbackState = this.formatPlaybackState(info.playbackState);
+                const trackInfo = this.sanitizeTrackInfo(info.currentTrack);
+                
+                panels.push({
+                    type: 'single',
+                    coordinator: speaker,
+                    members: [speaker],
+                    playbackState: playbackState,
+                    trackInfo: trackInfo,
+                    volume: info.volume ?? 0
+                });
+            }
+        }
+        
+        return panels;
+    },
+
+    /**
+     * Render a single panel (grouped or individual)
+     */
+    renderPanel(panel) {
+        const isPlaying = panel.playbackState === 'playing';
+        const isPaused = panel.playbackState === 'paused';
+        const statusClass = isPlaying ? 'playing' : (isPaused ? 'paused' : '');
+        const statusText = panel.playbackState.charAt(0).toUpperCase() + panel.playbackState.slice(1);
+        const statusIcon = isPlaying ? '●' : (isPaused ? '◐' : '○');
+        
+        const isGroup = panel.type === 'group';
+        const otherMembers = panel.members.filter(m => m !== panel.coordinator);
+        
+        // Build display name: "A + B" for 2, "A + 2 more" for 3+
+        let displayName = panel.coordinator;
+        let membersDisplay = '';
+        if (isGroup && otherMembers.length > 0) {
+            if (otherMembers.length === 1) {
+                displayName = `${panel.coordinator} + ${otherMembers[0]}`;
+            } else {
+                displayName = `${panel.coordinator} + ${otherMembers.length} more`;
+            }
+            // Always show the member chips for groups
+            membersDisplay = `
+                <div class="group-members-display">
+                    ${panel.members.map(m => `<span class="member-chip">${this.escapeHtml(m)}</span>`).join('')}
+                </div>
+            `;
+        }
+        
+        // Calculate average group volume for group volume control
+        let groupVolumeControl = '';
+        if (isGroup) {
+            const volumes = panel.members.map(m => {
+                const state = this.speakerStates[m] || {};
+                return state.info?.volume ?? 0;
+            });
+            const avgVolume = Math.round(volumes.reduce((a, b) => a + b, 0) / volumes.length);
+            
+            groupVolumeControl = `
+                <div class="volume-control group-volume">
+                    <span class="volume-member-name">Group</span>
+                    <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    </svg>
+                    <input type="range" 
+                           class="volume-slider" 
+                           min="0" 
+                           max="100" 
+                           value="${avgVolume}"
+                           oninput="mobileApp.updateGroupVolumeLabel('${this.escapeJs(panel.coordinator)}', this.value)"
+                           onchange="mobileApp.setGroupVolume('${this.escapeJs(panel.coordinator)}', this.value)">
+                    <span class="volume-value" id="group-volume-${this.escapeHtml(panel.coordinator)}">${avgVolume}%</span>
+                </div>
+            `;
+        }
+        
+        // Individual volume controls for each member (expandable for groups)
+        let volumeControlsHtml = '';
+        if (isGroup) {
+            const individualControls = panel.members.map(member => {
+                const state = this.speakerStates[member] || {};
+                const info = state.info || {};
+                const volume = info.volume ?? 0;
+                
+                return `
                     <div class="volume-control">
+                        <span class="volume-member-name">${this.escapeHtml(member)}</span>
                         <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                             <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
@@ -439,13 +603,103 @@ window.mobileApp = {
                                min="0" 
                                max="100" 
                                value="${volume}"
-                               oninput="mobileApp.updateVolumeLabel('${this.escapeJs(speaker)}', this.value)"
-                               onchange="mobileApp.setVolume('${this.escapeJs(speaker)}', this.value)">
-                        <span class="volume-value" id="volume-${this.escapeHtml(speaker)}">${volume}%</span>
+                               oninput="mobileApp.updateVolumeLabel('${this.escapeJs(member)}', this.value)"
+                               onchange="mobileApp.setVolume('${this.escapeJs(member)}', this.value)">
+                        <span class="volume-value" id="volume-${this.escapeHtml(member)}">${volume}%</span>
                     </div>
+                `;
+            }).join('');
+            
+            volumeControlsHtml = `
+                <details class="individual-volumes-expandable">
+                    <summary class="individual-volumes-summary">
+                        <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                        Individual volumes
+                    </summary>
+                    <div class="individual-volumes-content">
+                        ${individualControls}
+                    </div>
+                </details>
+            `;
+        } else {
+            // Single speaker - just show volume control directly
+            const state = this.speakerStates[panel.coordinator] || {};
+            const info = state.info || {};
+            const volume = info.volume ?? 0;
+            
+            volumeControlsHtml = `
+                <div class="volume-control">
+                    <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <input type="range" 
+                           class="volume-slider" 
+                           min="0" 
+                           max="100" 
+                           value="${volume}"
+                           oninput="mobileApp.updateVolumeLabel('${this.escapeJs(panel.coordinator)}', this.value)"
+                           onchange="mobileApp.setVolume('${this.escapeJs(panel.coordinator)}', this.value)">
+                    <span class="volume-value" id="volume-${this.escapeHtml(panel.coordinator)}">${volume}%</span>
                 </div>
             `;
-        }).join('');
+        }
+        
+        return `
+            <div class="speaker-card ${isGroup ? 'grouped-panel' : ''}" data-speaker="${this.escapeHtml(panel.coordinator)}">
+                <div class="speaker-header">
+                    <span class="speaker-name">
+                        ${this.escapeHtml(displayName)}
+                    </span>
+                    <span class="speaker-status ${statusClass}">
+                        ${statusIcon} ${statusText}
+                    </span>
+                </div>
+                
+                ${membersDisplay}
+                
+                ${panel.trackInfo.title || panel.trackInfo.artist ? `
+                <div class="speaker-track-info">
+                    ${panel.trackInfo.title ? `<div class="track-title">${this.escapeHtml(panel.trackInfo.title)}</div>` : ''}
+                    ${panel.trackInfo.artist ? `<div class="track-artist">${this.escapeHtml(panel.trackInfo.artist)}</div>` : ''}
+                </div>
+                ` : ''}
+                
+                <div class="speaker-controls">
+                    <button class="control-btn" onclick="mobileApp.previousTrack('${this.escapeJs(panel.coordinator)}')" title="Previous">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                            <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
+                        </svg>
+                    </button>
+                    <button class="control-btn play-pause ${isPlaying ? 'playing' : ''}" 
+                            onclick="mobileApp.togglePlayPause('${this.escapeJs(panel.coordinator)}')" 
+                            aria-label="${isPlaying ? 'Pause' : 'Play'}">
+                        ${isPlaying ? `
+                            <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
+                                <rect x="14" y="4" width="4" height="16" fill="currentColor"/>
+                            </svg>
+                        ` : `
+                            <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+                            </svg>
+                        `}
+                    </button>
+                    <button class="control-btn" onclick="mobileApp.nextTrack('${this.escapeJs(panel.coordinator)}')" title="Next">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                            <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
+                        </svg>
+                    </button>
+                </div>
+                
+                ${groupVolumeControl}
+                ${volumeControlsHtml}
+            </div>
+        `;
     },
 
     /**
@@ -518,6 +772,39 @@ window.mobileApp = {
     },
 
     /**
+     * Update group volume label during drag
+     * @param {string} coordinator - The group coordinator speaker name
+     * @param {number} value - The volume value
+     */
+    updateGroupVolumeLabel(coordinator, value) {
+        const label = document.getElementById(`group-volume-${coordinator}`);
+        if (label) {
+            label.textContent = `${value}%`;
+        }
+    },
+
+    /**
+     * Set volume for all speakers in a group
+     * @param {string} coordinator - The group coordinator speaker name
+     * @param {number} volume - The volume level (0-100)
+     */
+    async setGroupVolume(coordinator, volume) {
+        try {
+            await api.setGroupVolume(coordinator, parseInt(volume, 10));
+            // Update individual volume labels to reflect change
+            const groupInfo = this.speakerGroups[coordinator];
+            if (groupInfo && groupInfo.members) {
+                groupInfo.members.forEach(member => {
+                    this.updateVolumeLabel(member, volume);
+                });
+            }
+        } catch (error) {
+            console.error('Failed to set group volume:', error);
+            this.showToast('Group volume change failed', 'error');
+        }
+    },
+
+    /**
      * Update a single speaker's state
      * @param {string} speaker - The speaker name
      */
@@ -538,12 +825,12 @@ window.mobileApp = {
      * Start polling for speaker updates
      */
     startPolling() {
-        // Update every 10 seconds when on speakers tab
+        // Update every 5 seconds when on speakers tab (matches desktop)
         this.updateInterval = setInterval(() => {
             if (this.currentTab === 'speakers-tab' && !document.hidden) {
                 this.updateAllSpeakers();
             }
-        }, 10000);
+        }, 5000);
         
         // Pause polling when page is hidden
         document.addEventListener('visibilitychange', () => {
@@ -551,6 +838,68 @@ window.mobileApp = {
                 this.updateAllSpeakers();
             }
         });
+    },
+
+    /**
+     * Fetches and updates group information for all speakers
+     */
+    async updateGroupInfo() {
+        try {
+            const response = await api.getGroups();
+            this.speakerGroups = this.parseGroupInfo(response.groups);
+            console.log('[MobileApp] Group info updated:', this.speakerGroups);
+        } catch (error) {
+            console.debug('Failed to fetch group info:', error.message);
+        }
+    },
+
+    /**
+     * Parses group info from soco-cli output
+     * Format: "CoordinatorName: Member1, Member2" or "SpeakerName:" (no group)
+     */
+    parseGroupInfo(groupsText) {
+        const groups = {};
+        if (!groupsText) return groups;
+
+        const lines = groupsText.split('\n').filter(line => line.trim());
+        
+        lines.forEach(line => {
+            // Format is "CoordinatorName: Member1, Member2" or "SpeakerName:" for ungrouped
+            const colonIndex = line.indexOf(':');
+            if (colonIndex === -1) return;
+            
+            const coordinator = line.substring(0, colonIndex).trim();
+            const membersStr = line.substring(colonIndex + 1).trim();
+            
+            // If no members after colon, speaker is not grouped
+            if (!membersStr) return;
+            
+            // Parse members (comma-separated)
+            const memberNames = membersStr.split(',').map(s => s.trim()).filter(s => s);
+            
+            // Only track if there are actual group members
+            if (memberNames.length > 0) {
+                const allMembers = [coordinator, ...memberNames];
+                
+                // Mark coordinator
+                groups[coordinator] = {
+                    coordinator,
+                    members: allMembers,
+                    isCoordinator: true
+                };
+                
+                // Mark all members
+                memberNames.forEach(member => {
+                    groups[member] = {
+                        coordinator,
+                        members: allMembers,
+                        isCoordinator: false
+                    };
+                });
+            }
+        });
+        
+        return groups;
     },
 
     /**
@@ -597,6 +946,95 @@ window.mobileApp = {
     escapeJs(text) {
         if (!text) return '';
         return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    },
+
+    /**
+     * Formats playback state for display (matches desktop logic)
+     * @param {string} state - The raw playback state
+     * @returns {string} Normalized state: 'stopped', 'paused', or 'playing'
+     */
+    formatPlaybackState(state) {
+        const stateMap = {
+            'stopped': 'stopped',
+            'paused': 'paused',
+            'playing': 'playing',
+            'in progress': 'playing',
+            'transitioning': 'paused'
+        };
+        return stateMap[state?.toLowerCase()] || 'stopped';
+    },
+
+    /**
+     * Sanitizes track info from soco-cli (matches desktop logic)
+     * @param {string} trackInfo - The raw track info string
+     * @returns {{title: string, artist: string}} Sanitized track info
+     */
+    sanitizeTrackInfo(trackInfo) {
+        if (!trackInfo || !trackInfo.trim()) {
+            return { title: '', artist: '' };
+        }
+
+        let title = '';
+        let artist = '';
+
+        // Parse soco-cli labeled format (e.g., "Title: Song Name", "Artist: Artist Name", "Channel: Station Name")
+        const lines = trackInfo.split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.toLowerCase().startsWith('title:')) {
+                title = trimmed.substring(6).trim();
+            } else if (trimmed.toLowerCase().startsWith('artist:')) {
+                artist = trimmed.substring(7).trim();
+            } else if (trimmed.toLowerCase().startsWith('channel:')) {
+                // Channel is used for radio stations/playlists - use as title if no title found
+                if (!title) {
+                    title = trimmed.substring(8).trim();
+                }
+            }
+        }
+
+        // If we found labeled fields, return them
+        if (title || artist) {
+            return { 
+                title: title, 
+                artist: artist 
+            };
+        }
+
+        // Fallback: try simple line-based parsing for other formats
+        title = lines[0]?.trim() || '';
+        artist = lines[1]?.trim() || '';
+
+        // Handle soco-cli messages that aren't actual track info
+        const noTrackIndicators = [
+            'playback is in progress',
+            'playback is stopped',
+            'no track',
+            'not available',
+            'unknown'
+        ];
+
+        const titleLower = title.toLowerCase();
+        const artistLower = artist.toLowerCase();
+
+        // If title looks like a status message, try to use artist as title
+        if (!title || noTrackIndicators.some(ind => titleLower.includes(ind))) {
+            if (artist && !noTrackIndicators.some(ind => artistLower.includes(ind))) {
+                title = artist;
+                artist = '';
+            } else {
+                // Don't display anything when stopped
+                title = '';
+                artist = '';
+            }
+        }
+
+        // If artist is just a status message, clear it
+        if (noTrackIndicators.some(ind => artistLower.includes(ind))) {
+            artist = '';
+        }
+
+        return { title, artist };
     },
 
     /**
@@ -664,4 +1102,7 @@ window.mobileApp = {
     }
 };
 
-// Note: init() is called from app.html after scripts are loaded with cache-busting
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    mobileApp.init();
+});

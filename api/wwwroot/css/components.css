@@ -215,6 +215,57 @@
     color: var(--color-gray-700);
 }
 
+.speaker-status.offline {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Offline speaker card state */
+.speaker-card.speaker-offline {
+    opacity: 0.7;
+    position: relative;
+}
+
+.speaker-card.speaker-offline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(0, 0, 0, 0.02) 10px,
+        rgba(0, 0, 0, 0.02) 20px
+    );
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 1;
+}
+
+.speaker-card.speaker-offline .speaker-controls,
+.speaker-card.speaker-offline .playmode-controls,
+.speaker-card.speaker-offline .volume-control {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.speaker-card.speaker-offline .speaker-track {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+}
+
+.speaker-card.speaker-offline .speaker-track .track-title {
+    color: #991b1b;
+}
+
+.speaker-card.speaker-offline .speaker-track .track-artist {
+    color: #b91c1c;
+    font-style: italic;
+}
+
 .speaker-track {
     margin-bottom: var(--spacing-md);
     padding: var(--spacing-md);

@@ -289,6 +289,14 @@ window.speakers = {
             const card = document.querySelector(`.speaker-card[data-speaker="${escaped}"]`);
             if (!card) return;
 
+            // Handle offline state
+            if (info.isOffline) {
+                this.setCardOffline(card, true, info.errorMessage);
+                return;
+            } else {
+                this.setCardOffline(card, false);
+            }
+
             // Update status - only if we have valid playback state
             if (info.playbackState) {
                 const status = card.querySelector('.speaker-status');
@@ -309,41 +317,67 @@ window.speakers = {
             const trackDiv = card.querySelector('.speaker-track');
             if (info.currentTrack && info.currentTrack.trim()) {
                 const lines = info.currentTrack.split('\n');
-                let title = lines[0]?.trim() || '';
-                let artist = lines[1]?.trim() || '';
+                let title = '';
+                let artist = '';
                 
-                // Handle soco-cli messages that aren't actual track info
-                const noTrackIndicators = [
-                    'playback is in progress',
-                    'no track',
-                    'not available',
-                    'unknown'
-                ];
-                
-                const titleLower = title.toLowerCase();
-                const artistLower = artist.toLowerCase();
-                
-                // If title looks like a status message, try to use artist as title
-                if (!title || noTrackIndicators.some(ind => titleLower.includes(ind))) {
-                    // Check if artist has real info
-                    if (artist && !noTrackIndicators.some(ind => artistLower.includes(ind))) {
-                        title = artist;
-                        artist = '';
-                    } else {
-                        title = 'No track info available';
-                        artist = '';
+                // Parse soco-cli labeled format (e.g., "Title: Song Name", "Artist: Artist Name", "Channel: Station Name")
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.toLowerCase().startsWith('title:')) {
+                        title = trimmed.substring(6).trim();
+                    } else if (trimmed.toLowerCase().startsWith('artist:')) {
+                        artist = trimmed.substring(7).trim();
+                    } else if (trimmed.toLowerCase().startsWith('channel:')) {
+                        // Channel is used for radio stations/playlists - use as title if no title found
+                        if (!title) {
+                            title = trimmed.substring(8).trim();
+                        }
                     }
                 }
                 
-                // If artist is just a status message, clear it
-                if (noTrackIndicators.some(ind => artistLower.includes(ind))) {
-                    artist = '';
+                // If we found labeled fields, use them
+                if (title || artist) {
+                    trackDiv.querySelector('.track-title').textContent = truncateText(title, 40);
+                    trackDiv.querySelector('.track-artist').textContent = truncateText(artist, 40);
+                } else {
+                    // Fallback: try simple line-based parsing for other formats
+                    title = lines[0]?.trim() || '';
+                    artist = lines[1]?.trim() || '';
+                    
+                    // Handle soco-cli messages that aren't actual track info
+                    const noTrackIndicators = [
+                        'playback is in progress',
+                        'playback is stopped',
+                        'no track',
+                        'not available',
+                        'unknown'
+                    ];
+                    
+                    const titleLower = title.toLowerCase();
+                    const artistLower = artist.toLowerCase();
+                    
+                    // If title looks like a status message, try to use artist as title
+                    if (!title || noTrackIndicators.some(ind => titleLower.includes(ind))) {
+                        if (artist && !noTrackIndicators.some(ind => artistLower.includes(ind))) {
+                            title = artist;
+                            artist = '';
+                        } else {
+                            // Don't display anything when stopped
+                            title = '';
+                            artist = '';
+                        }
+                    }
+                    
+                    // If artist is just a status message, clear it
+                    if (noTrackIndicators.some(ind => artistLower.includes(ind))) {
+                        artist = '';
+                    }
+                    
+                    trackDiv.querySelector('.track-title').textContent = truncateText(title, 40);
+                    trackDiv.querySelector('.track-artist').textContent = truncateText(artist, 40);
                 }
-                
-                trackDiv.querySelector('.track-title').textContent = truncateText(title, 40);
-                trackDiv.querySelector('.track-artist').textContent = truncateText(artist, 40);
             } else {
-                trackDiv.querySelector('.track-title').textContent = 'No track playing';
+                trackDiv.querySelector('.track-title').textContent = '';
                 trackDiv.querySelector('.track-artist').textContent = '';
             }
 
@@ -360,6 +394,50 @@ window.speakers = {
         } catch (error) {
             // Silently ignore update errors to prevent UI disruption
             console.debug(`Failed to update speaker ${speakerName}:`, error.message);
+        }
+    },
+
+    /**
+     * Sets the offline state of a speaker card
+     * @param {HTMLElement} card - The speaker card element
+     * @param {boolean} isOffline - Whether the speaker is offline
+     * @param {string} [errorMessage] - Optional error message to display
+     */
+    setCardOffline(card, isOffline, errorMessage = 'Speaker is offline') {
+        if (isOffline) {
+            card.classList.add('speaker-offline');
+            
+            // Update status badge
+            const status = card.querySelector('.speaker-status');
+            if (status) {
+                status.className = 'speaker-status offline';
+                status.textContent = 'Offline';
+            }
+            
+            // Update track info to show offline message
+            const trackDiv = card.querySelector('.speaker-track');
+            if (trackDiv) {
+                trackDiv.querySelector('.track-title').textContent = errorMessage;
+                trackDiv.querySelector('.track-artist').textContent = 'Check power and network connection';
+            }
+            
+            // Disable controls
+            card.querySelectorAll('.control-btn').forEach(btn => {
+                btn.disabled = true;
+            });
+            card.querySelectorAll('.volume-slider, .group-volume-slider').forEach(slider => {
+                slider.disabled = true;
+            });
+        } else {
+            card.classList.remove('speaker-offline');
+            
+            // Re-enable controls
+            card.querySelectorAll('.control-btn').forEach(btn => {
+                btn.disabled = false;
+            });
+            card.querySelectorAll('.volume-slider, .group-volume-slider').forEach(slider => {
+                slider.disabled = false;
+            });
         }
     },
 

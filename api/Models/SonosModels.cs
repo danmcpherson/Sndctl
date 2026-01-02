@@ -17,6 +17,14 @@ public class Speaker
     /// Battery level percentage (0-100) for portable speakers like Roam/Move. Null if not a portable speaker.
     /// </summary>
     public int? BatteryLevel { get; set; }
+    /// <summary>
+    /// Indicates if the speaker is offline or unreachable.
+    /// </summary>
+    public bool IsOffline { get; set; }
+    /// <summary>
+    /// Error message if the speaker is offline or has communication issues.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
 }
 
 /// <summary>

@@ -116,7 +116,7 @@ function createSpeakerCard(speakerName) {
         </div>
         
         <div class="speaker-track">
-            <div class="track-title">No track playing</div>
+            <div class="track-title"></div>
             <div class="track-artist"></div>
         </div>
         
