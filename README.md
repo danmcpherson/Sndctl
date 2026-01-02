@@ -135,7 +135,11 @@ Sonos Sound Hub works as a Progressive Web App (PWA). Add it to your home screen
 
 ## 🙏 Acknowledgments
 
-Built on the excellent [soco-cli](https://github.com/avantrec/soco-cli) library.
+This project wouldn't be possible without the incredible work of the [**SoCo**](https://github.com/SoCo/SoCo) team and [**soco-cli**](https://github.com/avantrec/soco-cli).
+
+**SoCo** (Sonos Controller) is the Python library that enables programmatic control of Sonos speakers. **soco-cli** provides the command-line interface that Sonos Sound Hub uses under the hood to communicate with your Sonos system.
+
+A huge thank you to the maintainers and contributors of these open-source projects for making Sonos automation accessible to everyone.
 
 ---
 
