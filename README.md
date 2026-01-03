@@ -66,7 +66,7 @@ Build custom automation sequences using a visual editor. Chain together any comb
 
 **Want a plug-and-play solution?** I offer pre-configured Raspberry Pi units with Sonos Sound Hub ready to go.
 
-📧 **Email [sonoshub@dmcemail.com](mailto:sonoshub@dmcemail.com)** for pricing and availability.
+📧 **Visit [Sonos Sound Hub](https://sonossoundhub.etsy.com)** for pricing and availability.
 
 Just plug it in, connect to your network, and you're ready to control your Sonos system.
 
