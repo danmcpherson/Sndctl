@@ -14,6 +14,8 @@ window.mobileApp = {
     versionCheckInterval: null,
     currentVersion: null,
     isUpdating: false,
+    isPollingPaused: false,
+    pollPauseTimeout: null,
     batteryWarningDismissed: false,
     batteryWarningDismissedUntil: null,
     installPromptDismissed: false,
@@ -395,7 +397,24 @@ window.mobileApp = {
      * (matches desktop behavior - soco-cli doesn't handle concurrent requests well)
      */
     async updateAllSpeakers() {
-        if (this.isUpdating || this.speakers.length === 0) return;
+        if (this.isUpdating) return;
+        
+        // If no speakers yet, try to discover them (polling will retry every 5 sec)
+        if (this.speakers.length === 0) {
+            try {
+                this.speakers = await api.getSpeakers();
+                if (this.speakers.length === 0) {
+                    // Still no speakers - show loading state, polling will retry
+                    this.renderSpeakersLoading();
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to discover speakers:', error);
+                this.renderSpeakersLoading();
+                return;
+            }
+        }
+        
         this.isUpdating = true;
         console.log('[MobileApp] updateAllSpeakers started, speakers:', this.speakers);
         
@@ -425,6 +444,19 @@ window.mobileApp = {
         } finally {
             this.isUpdating = false;
         }
+    },
+
+    /**
+     * Render a loading state while searching for speakers
+     */
+    renderSpeakersLoading() {
+        const container = document.getElementById('speakers-list');
+        container.innerHTML = `
+            <div class="loading-message-mobile">
+                <div class="spinner-mobile"></div>
+                <p>Searching for speakers...</p>
+            </div>
+        `;
     },
 
     /**
@@ -785,7 +817,7 @@ window.mobileApp = {
     },
 
     /**
-     * Update volume label during drag
+     * Update volume label during drag (also stores value to prevent jump-back on re-render)
      * @param {string} speaker - The speaker name
      * @param {number} value - The volume value
      */
@@ -794,6 +826,32 @@ window.mobileApp = {
         if (label) {
             label.textContent = `${value}%`;
         }
+        // Optimistic update: store the value immediately so re-renders don't reset the slider
+        if (this.speakerStates[speaker]) {
+            if (!this.speakerStates[speaker].info) {
+                this.speakerStates[speaker].info = {};
+            }
+            this.speakerStates[speaker].info.volume = parseInt(value, 10);
+            this.speakerStates[speaker].volume = parseInt(value, 10);
+        }
+        // Pause polling during volume adjustment to avoid conflicts
+        this.pausePollingBriefly();
+    },
+
+    /**
+     * Temporarily pause polling to avoid conflicts during user interactions
+     */
+    pausePollingBriefly() {
+        // Clear any existing pause timeout
+        if (this.pollPauseTimeout) {
+            clearTimeout(this.pollPauseTimeout);
+        }
+        // Mark as paused
+        this.isPollingPaused = true;
+        // Resume after 3 seconds of no interaction
+        this.pollPauseTimeout = setTimeout(() => {
+            this.isPollingPaused = false;
+        }, 3000);
     },
 
     /**
@@ -807,11 +865,13 @@ window.mobileApp = {
         } catch (error) {
             console.error('Failed to set volume:', error);
             this.showToast('Volume change failed', 'error');
+            // On error, refresh to get the actual value
+            this.updateSpeakerState(speaker);
         }
     },
 
     /**
-     * Update group volume label during drag
+     * Update group volume label during drag (also stores values to prevent jump-back on re-render)
      * @param {string} coordinator - The group coordinator speaker name
      * @param {number} value - The volume value
      */
@@ -820,6 +880,23 @@ window.mobileApp = {
         if (label) {
             label.textContent = `${value}%`;
         }
+        // Optimistic update for all members in the group
+        const groupInfo = this.speakerGroups[coordinator];
+        if (groupInfo && groupInfo.members) {
+            groupInfo.members.forEach(member => {
+                if (this.speakerStates[member]) {
+                    if (!this.speakerStates[member].info) {
+                        this.speakerStates[member].info = {};
+                    }
+                    this.speakerStates[member].info.volume = parseInt(value, 10);
+                    this.speakerStates[member].volume = parseInt(value, 10);
+                }
+                // Also update the individual volume labels in the UI
+                this.updateVolumeLabel(member, value);
+            });
+        }
+        // Pause polling during volume adjustment
+        this.pausePollingBriefly();
     },
 
     /**
@@ -866,7 +943,7 @@ window.mobileApp = {
     startPolling() {
         // Update every 5 seconds when on speakers tab (matches desktop)
         this.updateInterval = setInterval(() => {
-            if (this.currentTab === 'speakers-tab' && !document.hidden) {
+            if (this.currentTab === 'speakers-tab' && !document.hidden && !this.isPollingPaused) {
                 this.updateAllSpeakers();
             }
         }, 5000);
