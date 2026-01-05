@@ -1,6 +1,39 @@
 /**
  * Macro Management Module
  */
+
+/**
+ * Copies text to clipboard with fallback for non-secure contexts
+ * @param {string} text - The text to copy to clipboard
+ * @returns {Promise<void>}
+ */
+async function copyToClipboard(text) {
+    // Try the modern Clipboard API first (requires secure context)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+    
+    // Fallback for non-secure contexts (HTTP)
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            throw new Error('Copy command failed');
+        }
+    } finally {
+        document.body.removeChild(textArea);
+    }
+}
+
 window.macros = {
     currentMacros: [],
     editingMacro: null,
@@ -133,7 +166,7 @@ window.macros = {
         const filePathSpan = document.getElementById('macros-file-path');
         if (filePathSpan && filePathSpan.textContent) {
             try {
-                await navigator.clipboard.writeText(filePathSpan.textContent);
+                await copyToClipboard(filePathSpan.textContent);
                 showToast('File path copied to clipboard', 'success');
             } catch (error) {
                 showToast('Failed to copy file path', 'error');
@@ -794,7 +827,7 @@ window.macros = {
             const baseUrl = window.location.origin;
             const url = `${baseUrl}/api/macro/execute/${encodeURIComponent(macroName)}`;
             
-            await navigator.clipboard.writeText(url);
+            await copyToClipboard(url);
             showToast('Macro URL copied to clipboard', 'success');
         } catch (error) {
             showToast(`Failed to copy URL: ${error.message}`, 'error');

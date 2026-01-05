@@ -1,4 +1,4 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+ // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
 {
 	"name": "Raspberry Pi Web App (.NET)",
@@ -6,8 +6,11 @@
 	"image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0",
 	"features": {},
 
+	// Use host network for Sonos device discovery (multicast/SSDP)
+	"runArgs": ["--network=host"],
+
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "dotnet restore api/api.csproj && sudo apt-get update && sudo apt-get install -y pipx && pipx install soco-cli",
+	"postCreateCommand": "dotnet restore api/api.csproj && sudo apt-get update && sudo apt-get install -y pipx && pipx install soco-cli && python3 .devcontainer/setup-sonos-cache.py && cd sonos-mcp-server && python3 -m venv .venv && .venv/bin/pip install -e .",
 
 	// Configure tool-specific properties.
 	"customizations": {
@@ -17,23 +20,6 @@
 				"ms-dotnettools.csharp",
 				"github.vscode-github-actions"
 			]
-		}
-	},
-
-	// Forward ports for local development
-	"forwardPorts": [5000, 5001, 8000],
-	"portsAttributes": {
-		"5000": {
-			"label": "Application (HTTP)",
-			"onAutoForward": "notify"
-		},
-		"5001": {
-			"label": "Application (HTTPS)",
-			"onAutoForward": "notify"
-		},
-		"8000": {
-			"label": "Soco-CLI HTTP API",
-			"onAutoForward": "silent"
 		}
 	}
 
