@@ -145,7 +145,7 @@ def main():
     settings = get_settings()
     
     uvicorn.run(
-        "sonos_hub.main:app",
+        "sndctl.main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,

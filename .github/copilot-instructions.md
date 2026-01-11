@@ -66,7 +66,7 @@
 - Use systemd service for auto-start on boot
 
 ## File Organization
-- Backend code in `api-python/src/sonos_hub/`
+- Backend code in `api-python/src/sndctl/`
 - Frontend code in `wwwroot/` (served as static files)
 - Data files in `data/` directory (configurable)
 - Keep structure simple and logical

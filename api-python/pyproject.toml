@@ -1,7 +1,7 @@
 [project]
-name = "sonos-hub"
+name = "sndctl"
 version = "0.1.0"
-description = "Sound Control - A web-based Sonos controller for Raspberry Pi"
+description = "Sound Control - A web-based speaker controller for Raspberry Pi"
 requires-python = ">=3.9"
 dependencies = [
     "fastapi>=0.109.0",
@@ -16,7 +16,7 @@ dependencies = [
 dev = ["pytest", "pytest-asyncio", "httpx"]
 
 [project.scripts]
-sonos-hub = "sonos_hub.main:main"
+sndctl = "sndctl.main:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]

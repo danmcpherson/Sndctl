@@ -18,23 +18,23 @@ source .venv/bin/activate
 pip install -e .
 
 # Run the server
-SONOS_HUB_DATA_DIRECTORY="../api/data" \
-SONOS_HUB_WWWROOT_PATH="../api/wwwroot" \
-python -m uvicorn sonos_hub.main:app --host 0.0.0.0 --port 5001
+SNDCTL_DATA_DIRECTORY="../data" \
+SNDCTL_WWWROOT_PATH="../wwwroot" \
+python -m uvicorn sndctl.main:app --host 0.0.0.0 --port 5001
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SONOS_HUB_HOST` | `127.0.0.1` | Host to bind to |
-| `SONOS_HUB_PORT` | `5000` | Port to bind to |
-| `SONOS_HUB_DEBUG` | `false` | Enable debug mode |
-| `SONOS_HUB_DATA_DIRECTORY` | `data` | Path to data directory (macros, etc.) |
-| `SONOS_HUB_WWWROOT_PATH` | `../api/wwwroot` | Path to static web files |
-| `SONOS_HUB_SOCO_CLI_PORT` | `8000` | Port for soco-cli HTTP API |
-| `SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE` | `false` | Use local speaker cache (for Docker/containers) |
-| `SONOS_HUB_OPENAI_API_KEY` | *(none)* | OpenAI API key for voice control |
+| `SNDCTL_HOST` | `127.0.0.1` | Host to bind to |
+| `SNDCTL_PORT` | `5000` | Port to bind to |
+| `SNDCTL_DEBUG` | `false` | Enable debug mode |
+| `SNDCTL_DATA_DIRECTORY` | `data` | Path to data directory (macros, etc.) |
+| `SNDCTL_WWWROOT_PATH` | `../wwwroot` | Path to static web files |
+| `SNDCTL_SOCO_CLI_PORT` | `8000` | Port for soco-cli HTTP API |
+| `SNDCTL_SOCO_CLI_USE_LOCAL_CACHE` | `false` | Use local speaker cache (for Docker/containers) |
+| `SNDCTL_OPENAI_API_KEY` | *(none)* | OpenAI API key for voice control |
 
 ## API Endpoints
 
@@ -85,13 +85,13 @@ python -m uvicorn sonos_hub.main:app --host 0.0.0.0 --port 5001
 pip install -e ".[dev]"
 
 # Run with auto-reload
-uvicorn sonos_hub.main:app --reload --port 5001
+uvicorn sndctl.main:app --reload --port 5001
 ```
 
 ## Project Structure
 
 ```
-src/sonos_hub/
+src/sndctl/
 ├── main.py              # FastAPI app entry point
 ├── config.py            # Settings from env vars
 ├── models/              # Pydantic models
@@ -113,5 +113,5 @@ src/sonos_hub/
 In container environments where multicast discovery doesn't work, you can use the speaker cache:
 
 1. Run the cache setup script to scan for speakers
-2. Set `SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE=true`
+2. Set `SNDCTL_SOCO_CLI_USE_LOCAL_CACHE=true`
 3. The soco-cli will use the cached speaker list instead of multicast discovery

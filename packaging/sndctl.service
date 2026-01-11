@@ -7,12 +7,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/sndctl
-ExecStart=/opt/sndctl/.venv/bin/python -m uvicorn sonos_hub.main:app --host 0.0.0.0 --port 80
+ExecStart=/opt/sndctl/.venv/bin/python -m uvicorn sndctl.main:app --host 0.0.0.0 --port 80
 Restart=always
 RestartSec=10
-Environment=SONOS_HUB_DATA_DIRECTORY=/opt/sndctl/data
-Environment=SONOS_HUB_WWWROOT_PATH=/opt/sndctl/wwwroot
-Environment=SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE=false
+Environment=SNDCTL_DATA_DIRECTORY=/opt/sndctl/data
+Environment=SNDCTL_WWWROOT_PATH=/opt/sndctl/wwwroot
+Environment=SNDCTL_SOCO_CLI_USE_LOCAL_CACHE=false
 
 # Allow binding to port 80
 AmbientCapabilities=CAP_NET_BIND_SERVICE

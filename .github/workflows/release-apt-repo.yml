@@ -52,7 +52,7 @@ jobs:
       - name: Verify Python package structure
         run: |
           test -f api-python/pyproject.toml
-          test -d api-python/src/sonos_hub
+          test -d api-python/src/sndctl
 
       - name: Install nfpm
         run: |

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     wwwroot_path: str = "../wwwroot"
     
     class Config:
-        env_prefix = "SONOS_HUB_"
+        env_prefix = "SNDCTL_"
         env_file = ".env"
         env_file_encoding = "utf-8"
     

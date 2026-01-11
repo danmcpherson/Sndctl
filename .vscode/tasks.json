@@ -7,7 +7,7 @@
       "args": [
         "-m",
         "uvicorn",
-        "sonos_hub.main:app",
+        "sndctl.main:app",
         "--host",
         "0.0.0.0",
         "--port",
@@ -24,9 +24,9 @@
       "options": {
         "cwd": "${workspaceFolder}/api-python",
         "env": {
-          "SONOS_HUB_DATA_DIRECTORY": "../data",
-          "SONOS_HUB_WWWROOT_PATH": "../wwwroot",
-          "SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE": "true"
+          "SNDCTL_DATA_DIRECTORY": "../data",
+          "SNDCTL_WWWROOT_PATH": "../wwwroot",
+          "SNDCTL_SOCO_CLI_USE_LOCAL_CACHE": "true"
         }
       }
     },
