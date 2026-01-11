@@ -1,6 +1,6 @@
 {
     "name": "Sound Control",
-    "short_name": "Sndctrl",
+    "short_name": "Sndctl",
     "description": "Control your Sonos speakers",
     "start_url": "/app.html",
     "display": "standalone",

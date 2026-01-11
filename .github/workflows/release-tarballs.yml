@@ -31,23 +31,23 @@ jobs:
 
       - name: Package Python application
         run: |
-          mkdir -p package/sndctrl
-          cp -r api-python/src package/sndctrl/
-          cp api-python/pyproject.toml package/sndctrl/
-          cp -r wwwroot package/sndctrl/
-          cp -r data package/sndctrl/
-          cp packaging/sndctrl.service package/sndctrl/
-          cp packaging/postinstall.sh package/sndctrl/
-          tar -czf sndctrl-${{ env.VERSION }}.tar.gz -C package sndctrl
+          mkdir -p package/sndctl
+          cp -r api-python/src package/sndctl/
+          cp api-python/pyproject.toml package/sndctl/
+          cp -r wwwroot package/sndctl/
+          cp -r data package/sndctl/
+          cp packaging/sndctl.service package/sndctl/
+          cp packaging/postinstall.sh package/sndctl/
+          tar -czf sndctl-${{ env.VERSION }}.tar.gz -C package sndctl
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sndctrl-${{ env.VERSION }}
-          path: sndctrl-${{ env.VERSION }}.tar.gz
+          name: sndctl-${{ env.VERSION }}
+          path: sndctl-${{ env.VERSION }}.tar.gz
 
       - name: Release tag assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: sndctrl-${{ env.VERSION }}.tar.gz
+          files: sndctl-${{ env.VERSION }}.tar.gz

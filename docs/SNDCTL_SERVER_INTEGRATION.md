@@ -29,7 +29,7 @@ Add the following to the firstrun.sh script after certificate registration:
 # Install Sound Control Application
 # ============================================
 
-install_sndctrl() {
+install_sndctl() {
     log_info "Installing Sound Control..."
     
     # Add the GitHub Packages repository (or your release server)
@@ -37,15 +37,15 @@ install_sndctrl() {
     SNDCTRL_REPO="https://github.com/danmcpherson/Sndctrl/releases"
     
     if [ "$SNDCTRL_VERSION" = "latest" ]; then
-        DOWNLOAD_URL="${SNDCTRL_REPO}/latest/download/sndctrl_arm64.deb"
+        DOWNLOAD_URL="${SNDCTRL_REPO}/latest/download/sndctl_arm64.deb"
     else
-        DOWNLOAD_URL="${SNDCTRL_REPO}/download/${SNDCTRL_VERSION}/sndctrl_arm64.deb"
+        DOWNLOAD_URL="${SNDCTRL_REPO}/download/${SNDCTRL_VERSION}/sndctl_arm64.deb"
     fi
     
     # Download and install
-    curl -fsSL "$DOWNLOAD_URL" -o /tmp/sndctrl.deb
-    dpkg -i /tmp/sndctrl.deb || apt-get install -f -y
-    rm /tmp/sndctrl.deb
+    curl -fsSL "$DOWNLOAD_URL" -o /tmp/sndctl.deb
+    dpkg -i /tmp/sndctl.deb || apt-get install -f -y
+    rm /tmp/sndctl.deb
     
     log_info "Sound Control installed successfully"
 }
@@ -69,11 +69,11 @@ configure_caddy() {
     cat > /etc/caddy/Caddyfile << 'CADDYFILE'
 # Sound Control - Caddy Reverse Proxy Configuration
 {$SNDCTRL_HOSTNAME} {
-    tls /etc/sndctrl/certs/cert.pem /etc/sndctrl/certs/key.pem
+    tls /etc/sndctl/certs/cert.pem /etc/sndctl/certs/key.pem
     reverse_proxy localhost:5000
     encode gzip
     log {
-        output file /var/log/caddy/sndctrl.log {
+        output file /var/log/caddy/sndctl.log {
             roll_size 10mb
             roll_keep 5
         }
@@ -90,19 +90,19 @@ http://{$SNDCTRL_HOSTNAME} {
 CADDYFILE
 
     # Create environment file for Caddy
-    cat > /etc/sndctrl/device.env << EOF
+    cat > /etc/sndctl/device.env << EOF
 SNDCTRL_HOSTNAME=${HOSTNAME}
 EOF
 
     # Create Caddy systemd override
     mkdir -p /etc/systemd/system/caddy.service.d
-    cat > /etc/systemd/system/caddy.service.d/sndctrl.conf << 'OVERRIDE'
+    cat > /etc/systemd/system/caddy.service.d/sndctl.conf << 'OVERRIDE'
 [Unit]
-After=network-online.target sndctrl.service
-Requires=sndctrl.service
+After=network-online.target sndctl.service
+Requires=sndctl.service
 
 [Service]
-EnvironmentFile=/etc/sndctrl/device.env
+EnvironmentFile=/etc/sndctl/device.env
 OVERRIDE
 
     systemctl daemon-reload
@@ -113,11 +113,11 @@ OVERRIDE
 
 # Call these after certificate registration
 install_caddy
-install_sndctrl
+install_sndctl
 configure_caddy
 
 # Start services
-systemctl start sndctrl
+systemctl start sndctl
 systemctl start caddy
 ```
 
@@ -125,7 +125,7 @@ systemctl start caddy
 
 Create these scripts that will be installed on the device:
 
-#### `device/scripts/sndctrl-register`
+#### `device/scripts/sndctl-register`
 
 ```bash
 #!/bin/bash
@@ -133,7 +133,7 @@ Create these scripts that will be installed on the device:
 
 set -e
 
-CONFIG_DIR="/etc/sndctrl"
+CONFIG_DIR="/etc/sndctl"
 CERT_DIR="${CONFIG_DIR}/certs"
 ENV_FILE="${CONFIG_DIR}/device.env"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
@@ -197,7 +197,7 @@ log_info "Certificate expires: $EXPIRES_AT"
 systemctl reload caddy 2>/dev/null || true
 ```
 
-#### `device/scripts/sndctrl-renew-cert`
+#### `device/scripts/sndctl-renew-cert`
 
 ```bash
 #!/bin/bash
@@ -205,10 +205,10 @@ systemctl reload caddy 2>/dev/null || true
 
 set -e
 
-CONFIG_DIR="/etc/sndctrl"
+CONFIG_DIR="/etc/sndctl"
 CERT_DIR="${CONFIG_DIR}/certs"
 METADATA_FILE="${CONFIG_DIR}/metadata.json"
-LOG_FILE="/var/log/sndctrl/cert-renewal.log"
+LOG_FILE="/var/log/sndctl/cert-renewal.log"
 
 log_info() { echo "[$(date -Iseconds)] [INFO] $1" | tee -a "$LOG_FILE"; }
 log_error() { echo "[$(date -Iseconds)] [ERROR] $1" | tee -a "$LOG_FILE" >&2; }
@@ -273,7 +273,7 @@ systemctl reload caddy
 
 ### 3. Systemd Services (`device/systemd/`)
 
-#### `device/systemd/sndctrl-cert-renewal.service`
+#### `device/systemd/sndctl-cert-renewal.service`
 
 ```ini
 [Unit]
@@ -283,10 +283,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/sndctrl-renew-cert
+ExecStart=/usr/local/bin/sndctl-renew-cert
 ```
 
-#### `device/systemd/sndctrl-cert-renewal.timer`
+#### `device/systemd/sndctl-cert-renewal.timer`
 
 ```ini
 [Unit]
@@ -312,7 +312,7 @@ cat > "$CONFIG_FILE" << EOF
     "deviceId": "${DEVICE_ID}",
     "deviceSecret": "${DEVICE_SECRET}",
     "serverUrl": "${SERVER_URL}",
-    "sndctrlVersion": "${SNDCTRL_VERSION:-latest}"
+    "sndctlVersion": "${SNDCTRL_VERSION:-latest}"
 }
 EOF
 ```
@@ -329,11 +329,11 @@ sndctl-server/
 │   ├── boot/
 │   │   └── firstrun.sh          # Updated with app installation
 │   ├── scripts/
-│   │   ├── sndctrl-register    # NEW
-│   │   └── sndctrl-renew-cert  # NEW
+│   │   ├── sndctl-register    # NEW
+│   │   └── sndctl-renew-cert  # NEW
 │   ├── systemd/
-│   │   ├── sndctrl-cert-renewal.service  # NEW
-│   │   └── sndctrl-cert-renewal.timer    # NEW
+│   │   ├── sndctl-cert-renewal.service  # NEW
+│   │   └── sndctl-cert-renewal.timer    # NEW
 │   └── configs/
 │       └── (generated device configs)
 ├── api/
@@ -357,7 +357,7 @@ sndctl-server/
 1. **Sndctrl** publishes `.deb` releases to GitHub Releases
 2. **sndctl-server** `firstrun.sh` downloads and installs the latest release
 3. Caddy configuration references certificate paths from sndctl-server
-4. Both systems use `/etc/sndctrl/` as the shared configuration directory
+4. Both systems use `/etc/sndctl/` as the shared configuration directory
 
 ## Testing
 

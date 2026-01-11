@@ -4,7 +4,7 @@
 set -e
 
 echo "Setting up Python virtual environment..."
-cd /opt/sndctrl
+cd /opt/sndctl
 
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
@@ -24,8 +24,8 @@ echo "Sound Control installed successfully!"
 echo "=========================================="
 echo ""
 echo "To start the service:"
-echo "  sudo systemctl enable sndctrl"
-echo "  sudo systemctl start sndctrl"
+echo "  sudo systemctl enable sndctl"
+echo "  sudo systemctl start sndctl"
 echo ""
 echo "Access the UI at: http://$(hostname -I | awk '{print $1}')/"
 echo ""

@@ -1,4 +1,4 @@
-name: sndctrl
+name: sndctl
 arch: "$ARCH"
 platform: linux
 version: "$VERSION"
@@ -17,30 +17,30 @@ scripts:
 contents:
   # Python application
   - src: "api-python/src/**"
-    dst: /opt/sndctrl/src
+    dst: /opt/sndctl/src
     type: file
   - src: "api-python/pyproject.toml"
-    dst: /opt/sndctrl/pyproject.toml
+    dst: /opt/sndctl/pyproject.toml
     type: file
   # Static web files
   - src: "wwwroot/**"
-    dst: /opt/sndctrl/wwwroot
+    dst: /opt/sndctl/wwwroot
     type: file
   # Data directory (macros)
   - src: "data/**"
-    dst: /opt/sndctrl/data
+    dst: /opt/sndctl/data
     type: config
   # Systemd service
-  - src: "packaging/sndctrl.service"
-    dst: /etc/systemd/system/sndctrl.service
+  - src: "packaging/sndctl.service"
+    dst: /etc/systemd/system/sndctl.service
     type: file
   # MCP Server for AI assistant integration
   - src: "sonos-mcp-server/pyproject.toml"
-    dst: /opt/sndctrl/sonos-mcp-server/pyproject.toml
+    dst: /opt/sndctl/sonos-mcp-server/pyproject.toml
     type: file
   - src: "sonos-mcp-server/README.md"
-    dst: /opt/sndctrl/sonos-mcp-server/README.md
+    dst: /opt/sndctl/sonos-mcp-server/README.md
     type: file
   - src: "sonos-mcp-server/src/sonos_mcp_server/**"
-    dst: /opt/sndctrl/sonos-mcp-server/src/sonos_mcp_server
+    dst: /opt/sndctl/sonos-mcp-server/src/sonos_mcp_server
     type: file

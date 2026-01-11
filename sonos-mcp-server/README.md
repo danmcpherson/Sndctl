@@ -214,7 +214,7 @@ npx @modelcontextprotocol/inspector python -m sonos_mcp_server
 Make sure the Sound Control API is running:
 
 ```bash
-sudo systemctl status sndctrl
+sudo systemctl status sndctl
 ```
 
 ### Tools not appearing

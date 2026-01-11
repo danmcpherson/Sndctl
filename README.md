@@ -66,7 +66,7 @@ Build custom automation sequences using a visual editor. Chain together any comb
 
 **Want a plug-and-play solution?** I offer pre-configured Raspberry Pi units with Sound Control ready to go.
 
-📧 **Visit [Sound Control](https://sndctrl.etsy.com)** for pricing and availability.
+📧 **Visit [Sound Control](https://sndctl.etsy.com)** for pricing and availability.
 
 Just plug it in, connect to your network, and you're ready to control your Sonos system.
 
@@ -77,11 +77,11 @@ Just plug it in, connect to your network, and you're ready to control your Sonos
 #### One-Line Install (Recommended)
 
 ```bash
-curl -fsSL https://danmcpherson.github.io/Sndctrl/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/sndctrl.gpg
+curl -fsSL https://danmcpherson.github.io/Sndctl/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/sndctl.gpg
 ARCH=$(dpkg --print-architecture)
-echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/sndctrl.gpg] https://danmcpherson.github.io/Sndctrl stable main" | sudo tee /etc/apt/sources.list.d/sndctrl.list
+echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/sndctl.gpg] https://danmcpherson.github.io/Sndctl stable main" | sudo tee /etc/apt/sources.list.d/sndctl.list
 sudo apt-get update
-sudo apt-get install sndctrl
+sudo apt-get install sndctl
 ```
 
 Then install the required [soco-cli](https://github.com/avantrec/soco-cli) dependency:
@@ -91,22 +91,22 @@ pipx install soco-cli
 
 Set up the Python virtual environment:
 ```bash
-cd /opt/sndctrl
+cd /opt/sndctl
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -e .
 ```
 
 **Start on boot:**
 ```bash
-sudo systemctl enable sndctrl
-sudo systemctl start sndctrl
+sudo systemctl enable sndctl
+sudo systemctl start sndctl
 ```
 
 **Access the UI:** Open `http://<your-pi-ip>/` (port 80) in any browser.
 
 **Optional: Install MCP Server for AI Assistants:**
 ```bash
-cd /opt/sndctrl/sonos-mcp-server
+cd /opt/sndctl/sonos-mcp-server
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -e .
 ```
@@ -139,7 +139,7 @@ Sound Control includes an MCP (Model Context Protocol) server that lets AI assis
 
 1. **Install the MCP server** (requires Python 3.10+):
    ```bash
-   cd /opt/sndctrl/sonos-mcp-server
+   cd /opt/sndctl/sonos-mcp-server
    python3 -m venv .venv
    .venv/bin/pip install -e .
    ```
@@ -151,7 +151,7 @@ Sound Control includes an MCP (Model Context Protocol) server that lets AI assis
    {
      "mcpServers": {
        "sonos": {
-         "command": "/opt/sndctrl/sonos-mcp-server/.venv/bin/python",
+         "command": "/opt/sndctl/sonos-mcp-server/.venv/bin/python",
          "args": ["-m", "sonos_mcp_server"],
          "env": {
            "SONOS_API_URL": "http://your-pi-ip:80"
@@ -206,7 +206,7 @@ The MCP server exposes 28 tools for complete Sonos control:
 | Problem | Solution |
 |---------|----------|
 | Speakers not found | Ensure your Pi is on the same network as your Sonos speakers |
-| Can't access the UI | Check that the service is running: `sudo systemctl status sndctrl` |
+| Can't access the UI | Check that the service is running: `sudo systemctl status sndctl` |
 | Port already in use | Another app is using port 80 or 8000. Stop it or change ports in settings |
 | Permission denied on startup | The systemd service includes capability settings for port 80. Ensure you're running the latest service file. |
 

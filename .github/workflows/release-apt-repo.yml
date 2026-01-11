@@ -36,7 +36,7 @@ jobs:
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
           else
             # Offset to account for workflow rename (old workflow had 23+ runs)
-            echo "VERSION=0.0.0-$((GITHUB_RUN_NUMBER + 100))" >> $GITHUB_ENV
+            echo "VERSION=0.0.0-$((GITHUB_RUN_NUMBER + 200))" >> $GITHUB_ENV
           fi
 
       - name: Install packaging tools
@@ -68,13 +68,13 @@ jobs:
           nfpm package \
             --config /tmp/nfpm.yaml \
             --packager deb \
-            --target dist/sndctrl_${{ env.VERSION }}_${{ env.ARCH }}.deb
+            --target dist/sndctl_${{ env.VERSION }}_${{ env.ARCH }}.deb
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-${{ env.ARCH }}
-          path: dist/sndctrl_${{ env.VERSION }}_${{ env.ARCH }}.deb
+          path: dist/sndctl_${{ env.VERSION }}_${{ env.ARCH }}.deb
 
   apt-repo:
     needs: build-deb
