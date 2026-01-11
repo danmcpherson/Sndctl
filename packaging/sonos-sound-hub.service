@@ -13,7 +13,6 @@ RestartSec=10
 Environment=SONOS_HUB_DATA_DIRECTORY=/opt/sonos-sound-hub/data
 Environment=SONOS_HUB_WWWROOT_PATH=/opt/sonos-sound-hub/wwwroot
 Environment=SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE=false
-Environment=PATH=/home/danmc/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Allow binding to port 80
 AmbientCapabilities=CAP_NET_BIND_SERVICE
