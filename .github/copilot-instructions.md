@@ -1,16 +1,23 @@
 # Copilot Instructions
 
 ## Project Overview
-- **Platform**: Raspberry Pi (ARM-compatible)
+- **Platform**: Raspberry Pi (ARM-compatible, including Pi Zero W)
 - **Frontend**: Vanilla JavaScript, HTML, CSS
-- **Backend**: ASP.NET Core Web API (.NET 8)
-- **Database**: SQLite (file-based, stored locally)
-- **Caching**: In-memory caching (IMemoryCache)
-- **Hosting**: Self-hosted on Raspberry Pi using Kestrel
+- **Backend**: Python/FastAPI
+- **HTTP Server**: Uvicorn
+- **Database**: SQLite (via stdlib `sqlite3`)
+- **Caching**: `cachetools` / `functools.lru_cache`
+- **Hosting**: Self-hosted on Raspberry Pi using Uvicorn + Caddy reverse proxy
 - **Architecture**: No view framework (React, Vue, etc.), all runs locally
 
 ## Sonos Control Source
-- **SoCo CLI**: Always consider wrapping or invoking functionality from the official SoCo CLI tool (`https://github.com/avantrec/soco-cli`), especially commands that translate well to a web interface (queue control, favorites, grouping, playback, and diagnostics). Prefer reusing those commands via the backend rather than re-implementing Sonos control logic from scratch.
+- **Hybrid Approach**: Use direct SoCo library for basic operations (discovery, playback, volume, grouping) and soco-cli HTTP API for macros and complex commands
+- **SoCo Library**: Primary control for speaker discovery, playback controls, volume, track info, favorites, and queue
+- **SoCo CLI**: Used for macro execution (leverages existing parser, parameter substitution, chained commands)
+
+## Testing
+- **Chrome DevTools MCP**: Available for browser-based testing and debugging
+- Use the browser tools for inspecting frontend behavior, network requests, and console output
 
 ## Code Style Preferences
 
@@ -19,69 +26,69 @@
 - **Simple fallbacks only**: Avoid long chains of fallbacks
 - **Modern JavaScript**: Use modern ES6+ features (const/let, arrow functions, async/await)
 - **Minimal comments**: Only comment complex logic
+
 ### Frontend (JavaScript)
 - Use vanilla JavaScript only - no frameworks
 - Fetch API for HTTP requests
 - Use relative URLs for API calls when served by same host, or localhost URLs for development
 - Implement both client-side and server-side validation
-- Keep frontend lightweight for optimal performance on Raspberry Pisers` not `https://domain.com/api/users`)
-- Implement both client-side and server-side validation
-### Backend (C#)
-- Use async/await patterns
-- Implement validation on all API endpoints
-- Standard ASP.NET Core Web API patterns
-- Utilize in-memory caching (IMemoryCache) where appropriate
-- Use SQLite for structured data storage (connection string in `appsettings.json`)
+- Keep frontend lightweight for optimal performance on Raspberry Pi
+
+### Backend (Python)
+- Use async/await patterns with `asyncio`
+- Use Pydantic models for request/response validation
+- Use type hints throughout (Python 3.9+ style)
+- Follow PEP 8 style guidelines
+- Use `sqlite3` stdlib for database access
+- Use `cachetools` or `functools.lru_cache` for caching
 - Store files in local filesystem (configured data directory)
-- **IMPORTANT**: SQLite database file path should be configurable via `appsettings.json`
+- **IMPORTANT**: Configuration via environment variables or `config.py`
 - **IMPORTANT**: All file storage should use relative paths from a configurable base directory
-- **IMPORTANT**: Always configure JSON serialization to use camelCase for property names (JavaScript expects camelCase, not PascalCase)
-- **IMPORTANT**: Ensure all code is ARM-compatible (avoid x86/x64-specific dependencies)
-- **IMPORTANT**: Always configure JSON serialization to use camelCase for property names (JavaScript expects camelCase, not PascalCase)
+- **IMPORTANT**: Pydantic models automatically use camelCase when configured (JavaScript expects camelCase)
+- **IMPORTANT**: Run blocking I/O (like SoCo calls) in thread pool with `asyncio.to_thread()`
 
 ### Error Handling
 - Follow standard best practices
 - Let errors fail fast rather than creating complex fallback chains
+- Use FastAPI's HTTPException for API errors
 - Simple, straightforward error messages
 
 ## Documentation Requirements
 - **JSDoc for JavaScript**: Document all functions with JSDoc comments
-- **XML Documentation for C#**: Use XML documentation comments for all public methods
+- **Docstrings for Python**: Use Google-style docstrings for all public functions and classes
 - **README files**: Include when needed for complex features or modules
+
 ## Raspberry Pi Specifics
 - Application runs entirely on the local device
-- Frontend served via ASP.NET Core static file middleware
-- Backend API runs on same Kestrel server (different routes)
-- Default port: 5000 (HTTP) or 5001 (HTTPS)
-- Use systemd service for auto-start on boot (optional)
+- Frontend served via FastAPI/Starlette static file middleware
+- Backend API runs on Uvicorn (port 5000)
+- Caddy reverse proxy for HTTPS termination
+- Use systemd service for auto-start on boot
 
 ## File Organization
-- No specific naming conventions required
+- Backend code in `api-python/src/sonos_hub/`
+- Frontend code in `api/wwwroot/` (served as static files)
+- Data files in `/data` directory (configurable)
 - Keep structure simple and logical
-- SQLite database and uploaded files stored in `/data` directory (configurable)
 
 ## Performance Considerations
-- Raspberry Pi has limited resources - optimize for ARM architecture
+- Raspberry Pi Zero W has very limited resources (512MB RAM, single core)
+- Python is inherently cross-platform (no ARM compatibility issues)
+- Target < 100MB RAM usage
+- Target < 5 second startup time
+
 ## Key Reminders
 1. This is vanilla JavaScript - no React, Vue, or other frameworks
 2. Everything runs locally on Raspberry Pi - no cloud dependencies
 3. Fail fast - don't over-engineer error handling
 4. Both frontend and backend validation is required
-5. Keep comments minimal (but use proper JSDoc/XML documentation)
+5. Keep comments minimal (but use proper JSDoc/docstrings)
 6. Use SQLite for data storage - it's file-based and perfect for Raspberry Pi
-7. Implementing NEW backend APIs in C# is a big deal, please confirm you should do it, and clearly describe why it's needed
-8. Use relative paths for file storage, configurable via `appsettings.json`
+7. Implementing NEW backend API endpoints requires careful consideration - confirm before adding
+8. Use relative paths for file storage, configurable via environment or config
 9. Never commit secrets, database files, or the `data/` directory to git
-10. All API endpoints should be authenticated by default unless explicitly made public
-11. Use camelCase for JSON properties sent to the frontend (JavaScript convention)
-12. Ensure ARM compatibility - avoid platform-specific dependencies
-13. Optimize for limited resources (CPU, RAM) on Raspberry Pi
-5. Keep comments minimal (but use proper JSDoc/XML documentation)
-6. Use Table Storage and Blob Storage - no SQL databases
-7. Implementing NEW backend APIs in C# is a big deal, please confirm you should do it, and clearly describe why it's needed
-8. You should not use the AzureWebJobsStorage environment variable. Create a new one as this is reserved by Static Web Apps
-9. Always use the `STORAGE` environment variable for all Azure Storage operations (Table Storage and Blob Storage)
-10. Never commit secrets, connection strings, or the `tools/.azure-config` file to git
-11. All API endpoints should be authenticated by default unless explicitly made public
-12. Use camelCase for JSON properties sent to the frontend (JavaScript convention)
+10. Use camelCase for JSON properties sent to the frontend (JavaScript convention)
+11. Use async/await properly - run blocking SoCo calls in thread pool
+12. Optimize for limited resources (CPU, RAM) on Raspberry Pi
+13. Chrome DevTools MCP is available for testing frontend functionality
  

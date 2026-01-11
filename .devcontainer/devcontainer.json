@@ -4,22 +4,65 @@
 	"name": "Raspberry Pi Web App (.NET)",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0",
-	"features": {},
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/desktop-lite:1": {
+			"password": "vscode",
+			"webPort": "6080",
+			"vncPort": "5901"
+		}
+	},
 
 	// Use host network for Sonos device discovery (multicast/SSDP)
 	"runArgs": ["--network=host"],
 
+	// Forward ports for noVNC and VNC access
+	"forwardPorts": [6080, 5901, 5000, 9222],
+	"portsAttributes": {
+		"6080": {
+			"label": "noVNC Desktop",
+			"onAutoForward": "notify"
+		},
+		"5901": {
+			"label": "VNC",
+			"onAutoForward": "silent"
+		},
+		"5000": {
+			"label": "API Server",
+			"onAutoForward": "notify"
+		},
+		"9222": {
+			"label": "Chrome DevTools",
+			"onAutoForward": "silent"
+		}
+	},
+
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "dotnet restore api/api.csproj && sudo apt-get update && sudo apt-get install -y pipx && pipx install soco-cli && python3 .devcontainer/setup-sonos-cache.py && cd sonos-mcp-server && python3 -m venv .venv && .venv/bin/pip install -e .",
+	"postCreateCommand": "dotnet restore api/api.csproj && sudo apt-get update && sudo apt-get install -y pipx wget gnupg python3-venv chromium && sudo mkdir -p /opt/google/chrome && sudo ln -sf /usr/bin/chromium /opt/google/chrome/chrome && pipx install soco-cli && python3 .devcontainer/setup-sonos-cache.py && rm -rf /workspaces/SonosSoundHub/sonos-mcp-server/.venv && python3 -m venv /workspaces/SonosSoundHub/sonos-mcp-server/.venv && /workspaces/SonosSoundHub/sonos-mcp-server/.venv/bin/pip install -e /workspaces/SonosSoundHub/sonos-mcp-server",
+
+	// Start Chromium with remote debugging on VNC display
+	"postStartCommand": "DISPLAY=:1 chromium --remote-debugging-port=9222 --no-sandbox --disable-gpu --disable-dev-shm-usage &",
 
 	// Configure tool-specific properties.
 	"customizations": {
-		"vscode": {
+		"vscode": {	
 			"extensions": [
 				"ms-dotnettools.csdevkit",
 				"ms-dotnettools.csharp",
 				"github.vscode-github-actions"
-			]
+			],
+			"settings": {
+				"mcp": {
+					"servers": {
+						"chrome-devtools": {
+							"command": "npx",
+							"args": ["-y", "chrome-devtools-mcp@latest", "--browserUrl=http://127.0.0.1:9222"]
+						}
+					}
+				}
+			}
 		}
 	}
 
