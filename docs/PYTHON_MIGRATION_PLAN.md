@@ -435,7 +435,7 @@ async def create_session(voice: str = "verse"):
 1. **Update systemd service file**
    ```ini
    [Unit]
-   Description=Sonos Sound Hub
+   Description=Sound Control
    After=network.target
    
    [Service]

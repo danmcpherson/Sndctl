@@ -4,7 +4,7 @@ An MCP (Model Context Protocol) server that exposes Sonos speaker control to AI 
 
 ## Overview
 
-This MCP server wraps the SonosSoundHub REST API, allowing AI tools to control your Sonos speakers through natural language. It supports:
+This MCP server wraps the Sound Control REST API, allowing AI tools to control your Sonos speakers through natural language. It supports:
 
 - **Speaker control**: play, pause, volume, mute, next/previous track
 - **Speaker grouping**: party mode, group/ungroup speakers
@@ -15,7 +15,7 @@ This MCP server wraps the SonosSoundHub REST API, allowing AI tools to control y
 ## Prerequisites
 
 1. **Python 3.10+** installed
-2. **SonosSoundHub API running** at `http://localhost:5000` (or configure via environment variable)
+2. **Sound Control API running** at `http://localhost:5000` (or configure via environment variable)
 3. **soco-cli** installed and working
 
 ## Installation
@@ -40,7 +40,7 @@ pipx install -e .
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SONOS_API_URL` | `http://localhost:5000` | URL of the SonosSoundHub API |
+| `SONOS_API_URL` | `http://localhost:5000` | URL of the Sound Control API |
 
 ### Claude Desktop
 
@@ -97,7 +97,7 @@ Create `.vscode/mcp.json` in your workspace:
 
 ### Remote Raspberry Pi
 
-If your SonosSoundHub runs on a Raspberry Pi:
+If your Sound Control runs on a Raspberry Pi:
 
 ```json
 {
@@ -211,11 +211,10 @@ npx @modelcontextprotocol/inspector python -m sonos_mcp_server
 
 ### "Connection refused" errors
 
-Make sure the SonosSoundHub API is running:
+Make sure the Sound Control API is running:
 
 ```bash
-cd ../api
-dotnet run
+sudo systemctl status sndctrl
 ```
 
 ### Tools not appearing
@@ -228,7 +227,7 @@ dotnet run
 
 1. Check speakers are discovered: use `list_speakers` first
 2. Ensure speaker names match exactly (case-sensitive)
-3. Check SonosSoundHub logs for errors
+3. Check Sound Control logs for errors
 
 ## License
 

@@ -1,6 +1,6 @@
-# Sonos Sound Hub - Python Backend
+# Sound Control - Python Backend
 
-Python/FastAPI backend for Sonos Sound Hub. This is the primary implementation, optimized for Raspberry Pi Zero W and all ARM devices.
+Python/FastAPI backend for Sound Control. This is the primary implementation, optimized for Raspberry Pi Zero W and all ARM devices.
 
 ## Requirements
 

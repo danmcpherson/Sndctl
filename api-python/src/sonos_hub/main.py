@@ -1,4 +1,4 @@
-"""FastAPI application entry point for SonosSoundHub."""
+"""FastAPI application entry point for Sound Control."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     global _soco_cli_service, _command_service, _macro_service
     
     settings = get_settings()
-    logger.info("Starting SonosSoundHub Python backend v%s", __version__)
+    logger.info("Starting Sound Control Python backend v%s", __version__)
     logger.info("Data directory: %s", settings.data_directory)
     logger.info("Static files: %s", settings.wwwroot_path)
     
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="SonosSoundHub",
+    title="Sound Control",
     description="A web-based Sonos controller for Raspberry Pi",
     version=__version__,
     lifespan=lifespan,

@@ -4,7 +4,7 @@
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('SonosSoundHub initialized');
+    console.log('Sound Control initialized');
 
     // Load version info
     loadVersion();

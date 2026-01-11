@@ -1,11 +1,11 @@
-name: sonos-sound-hub
+name: sndctrl
 arch: "$ARCH"
 platform: linux
 version: "$VERSION"
 section: utils
 priority: optional
-maintainer: Sonos Sound Hub <noreply@example.com>
-description: Self-hosted Sonos control UI and API for Raspberry Pi
+maintainer: Sound Control <noreply@example.com>
+description: Self-hosted speaker control UI and API for Raspberry Pi
 license: MIT
 depends:
   - python3
@@ -17,30 +17,30 @@ scripts:
 contents:
   # Python application
   - src: "api-python/src/**"
-    dst: /opt/sonos-sound-hub/src
+    dst: /opt/sndctrl/src
     type: file
   - src: "api-python/pyproject.toml"
-    dst: /opt/sonos-sound-hub/pyproject.toml
+    dst: /opt/sndctrl/pyproject.toml
     type: file
   # Static web files
   - src: "wwwroot/**"
-    dst: /opt/sonos-sound-hub/wwwroot
+    dst: /opt/sndctrl/wwwroot
     type: file
   # Data directory (macros)
   - src: "data/**"
-    dst: /opt/sonos-sound-hub/data
+    dst: /opt/sndctrl/data
     type: config
   # Systemd service
-  - src: "packaging/sonos-sound-hub.service"
-    dst: /etc/systemd/system/sonos-sound-hub.service
+  - src: "packaging/sndctrl.service"
+    dst: /etc/systemd/system/sndctrl.service
     type: file
   # MCP Server for AI assistant integration
   - src: "sonos-mcp-server/pyproject.toml"
-    dst: /opt/sonos-sound-hub/sonos-mcp-server/pyproject.toml
+    dst: /opt/sndctrl/sonos-mcp-server/pyproject.toml
     type: file
   - src: "sonos-mcp-server/README.md"
-    dst: /opt/sonos-sound-hub/sonos-mcp-server/README.md
+    dst: /opt/sndctrl/sonos-mcp-server/README.md
     type: file
   - src: "sonos-mcp-server/src/sonos_mcp_server/**"
-    dst: /opt/sonos-sound-hub/sonos-mcp-server/src/sonos_mcp_server
+    dst: /opt/sndctrl/sonos-mcp-server/src/sonos_mcp_server
     type: file

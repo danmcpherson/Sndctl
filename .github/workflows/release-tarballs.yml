@@ -31,23 +31,23 @@ jobs:
 
       - name: Package Python application
         run: |
-          mkdir -p package/sonos-sound-hub
-          cp -r api-python/src package/sonos-sound-hub/
-          cp api-python/pyproject.toml package/sonos-sound-hub/
-          cp -r wwwroot package/sonos-sound-hub/
-          cp -r data package/sonos-sound-hub/
-          cp packaging/sonos-sound-hub.service package/sonos-sound-hub/
-          cp packaging/postinstall.sh package/sonos-sound-hub/
-          tar -czf sonos-sound-hub-${{ env.VERSION }}.tar.gz -C package sonos-sound-hub
+          mkdir -p package/sndctrl
+          cp -r api-python/src package/sndctrl/
+          cp api-python/pyproject.toml package/sndctrl/
+          cp -r wwwroot package/sndctrl/
+          cp -r data package/sndctrl/
+          cp packaging/sndctrl.service package/sndctrl/
+          cp packaging/postinstall.sh package/sndctrl/
+          tar -czf sndctrl-${{ env.VERSION }}.tar.gz -C package sndctrl
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sonos-sound-hub-${{ env.VERSION }}
-          path: sonos-sound-hub-${{ env.VERSION }}.tar.gz
+          name: sndctrl-${{ env.VERSION }}
+          path: sndctrl-${{ env.VERSION }}.tar.gz
 
       - name: Release tag assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: sonos-sound-hub-${{ env.VERSION }}.tar.gz
+          files: sndctrl-${{ env.VERSION }}.tar.gz

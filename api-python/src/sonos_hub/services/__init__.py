@@ -1,4 +1,4 @@
-"""Services for SonosSoundHub."""
+"""Services for Sound Control."""
 
 from .soco_cli_service import SocoCliService
 from .sonos_command_service import SonosCommandService

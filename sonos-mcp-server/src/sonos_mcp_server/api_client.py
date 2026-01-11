@@ -1,11 +1,11 @@
-"""HTTP client for SonosSoundHub API."""
+"""HTTP client for Sound Control API."""
 
 import httpx
 from typing import Any
 
 
 class SonosApiClient:
-    """Client for the SonosSoundHub REST API."""
+    """Client for the Sound Control REST API."""
 
     def __init__(self, base_url: str = "http://localhost:5000"):
         self.base_url = base_url.rstrip("/")

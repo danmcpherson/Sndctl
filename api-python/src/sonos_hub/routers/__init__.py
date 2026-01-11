@@ -1,4 +1,4 @@
-"""Routers for SonosSoundHub API."""
+"""Routers for Sound Control API."""
 
 from .sonos import router as sonos_router
 from .macros import router as macros_router

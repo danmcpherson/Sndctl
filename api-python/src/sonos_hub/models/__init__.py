@@ -1,4 +1,4 @@
-"""Pydantic models for SonosSoundHub API."""
+"""Pydantic models for Sound Control API."""
 
 from .sonos import (
     Speaker,

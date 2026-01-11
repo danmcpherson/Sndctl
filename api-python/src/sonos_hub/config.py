@@ -1,4 +1,4 @@
-"""Configuration settings for SonosSoundHub."""
+"""Configuration settings for Sound Control."""
 
 import os
 from pathlib import Path

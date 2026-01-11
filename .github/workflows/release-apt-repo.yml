@@ -68,13 +68,13 @@ jobs:
           nfpm package \
             --config /tmp/nfpm.yaml \
             --packager deb \
-            --target dist/sonos-sound-hub_${{ env.VERSION }}_${{ env.ARCH }}.deb
+            --target dist/sndctrl_${{ env.VERSION }}_${{ env.ARCH }}.deb
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-${{ env.ARCH }}
-          path: dist/sonos-sound-hub_${{ env.VERSION }}_${{ env.ARCH }}.deb
+          path: dist/sndctrl_${{ env.VERSION }}_${{ env.ARCH }}.deb
 
   apt-repo:
     needs: build-deb
@@ -121,13 +121,13 @@ jobs:
         working-directory: repo
         run: |
           cat <<'EOF' > dists/stable/Release
-          Origin: Sonos Sound Hub
-          Label: Sonos Sound Hub
+          Origin: Sound Control
+          Label: Sound Control
           Suite: stable
           Codename: stable
           Architectures: armhf arm64
           Components: main
-          Description: Sonos Sound Hub APT repo
+          Description: Sound Control APT repo
           EOF
           apt-ftparchive release dists/stable >> dists/stable/Release
 

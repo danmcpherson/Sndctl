@@ -1,5 +1,5 @@
 /**
- * Mobile App Module for Sonos Sound Hub
+ * Mobile App Module for Sound Control
  * Optimized for iOS home screen app experience
  */
 window.mobileApp = {
@@ -24,7 +24,7 @@ window.mobileApp = {
      * Initialize the mobile app
      */
     async init() {
-        console.log('Initializing Sonos Sound Hub Mobile App');
+        console.log('Initializing Sound Control Mobile App');
         
         // Fix iOS scroll freeze at boundaries
         this.setupIOSScrollFix();

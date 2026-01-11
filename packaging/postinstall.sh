@@ -1,10 +1,10 @@
 #!/bin/bash
-# Post-install script for Sonos Sound Hub
+# Post-install script for Sound Control
 
 set -e
 
 echo "Setting up Python virtual environment..."
-cd /opt/sonos-sound-hub
+cd /opt/sndctrl
 
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
@@ -20,12 +20,12 @@ systemctl daemon-reload
 
 echo ""
 echo "=========================================="
-echo "Sonos Sound Hub installed successfully!"
+echo "Sound Control installed successfully!"
 echo "=========================================="
 echo ""
 echo "To start the service:"
-echo "  sudo systemctl enable sonos-sound-hub"
-echo "  sudo systemctl start sonos-sound-hub"
+echo "  sudo systemctl enable sndctrl"
+echo "  sudo systemctl start sndctrl"
 echo ""
 echo "Access the UI at: http://$(hostname -I | awk '{print $1}')/"
 echo ""

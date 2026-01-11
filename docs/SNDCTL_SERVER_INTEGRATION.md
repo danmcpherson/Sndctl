@@ -1,6 +1,6 @@
 # sndctl-server Integration Guide
 
-This document describes what needs to be added to the [sndctl-server](https://github.com/danmcpherson/Sndctrl) repository to integrate with Sonos Sound Hub.
+This document describes what needs to be added to the [sndctl-server](https://github.com/danmcpherson/Sndctrl) repository to integrate with Sound Control.
 
 ## Overview
 
@@ -9,7 +9,7 @@ The sndctl-server handles:
 - Device flashing scripts
 - First-boot configuration
 
-The Sonos Sound Hub provides:
+Sound Control provides:
 - The application itself (Python/FastAPI + frontend)
 - Caddy reverse proxy configuration
 - `.deb` package for installation
@@ -18,7 +18,7 @@ The Sonos Sound Hub provides:
 
 ### 1. Device Scripts (`device/`)
 
-The `firstrun.sh` script should install both the certificates AND the Sonos Sound Hub application.
+The `firstrun.sh` script should install both the certificates AND the Sound Control application.
 
 #### Update `device/boot/firstrun.sh`
 
@@ -26,28 +26,28 @@ Add the following to the firstrun.sh script after certificate registration:
 
 ```bash
 # ============================================
-# Install Sonos Sound Hub Application
+# Install Sound Control Application
 # ============================================
 
-install_sonos_sound_hub() {
-    log_info "Installing Sonos Sound Hub..."
+install_sndctrl() {
+    log_info "Installing Sound Control..."
     
     # Add the GitHub Packages repository (or your release server)
-    SONOSHUB_VERSION="${SONOSHUB_VERSION:-latest}"
-    SONOSHUB_REPO="https://github.com/danmcpherson/SonosSoundHub/releases"
+    SNDCTRL_VERSION="${SNDCTRL_VERSION:-latest}"
+    SNDCTRL_REPO="https://github.com/danmcpherson/Sndctrl/releases"
     
-    if [ "$SONOSHUB_VERSION" = "latest" ]; then
-        DOWNLOAD_URL="${SONOSHUB_REPO}/latest/download/sonos-sound-hub_arm64.deb"
+    if [ "$SNDCTRL_VERSION" = "latest" ]; then
+        DOWNLOAD_URL="${SNDCTRL_REPO}/latest/download/sndctrl_arm64.deb"
     else
-        DOWNLOAD_URL="${SONOSHUB_REPO}/download/${SONOSHUB_VERSION}/sonos-sound-hub_arm64.deb"
+        DOWNLOAD_URL="${SNDCTRL_REPO}/download/${SNDCTRL_VERSION}/sndctrl_arm64.deb"
     fi
     
     # Download and install
-    curl -fsSL "$DOWNLOAD_URL" -o /tmp/sonos-sound-hub.deb
-    dpkg -i /tmp/sonos-sound-hub.deb || apt-get install -f -y
-    rm /tmp/sonos-sound-hub.deb
+    curl -fsSL "$DOWNLOAD_URL" -o /tmp/sndctrl.deb
+    dpkg -i /tmp/sndctrl.deb || apt-get install -f -y
+    rm /tmp/sndctrl.deb
     
-    log_info "Sonos Sound Hub installed successfully"
+    log_info "Sound Control installed successfully"
 }
 
 install_caddy() {
@@ -67,21 +67,21 @@ configure_caddy() {
     
     # Create Caddyfile
     cat > /etc/caddy/Caddyfile << 'CADDYFILE'
-# Sonos Sound Hub - Caddy Reverse Proxy Configuration
-{$SONOSHUB_HOSTNAME} {
-    tls /etc/sonoshub/certs/cert.pem /etc/sonoshub/certs/key.pem
+# Sound Control - Caddy Reverse Proxy Configuration
+{$SNDCTRL_HOSTNAME} {
+    tls /etc/sndctrl/certs/cert.pem /etc/sndctrl/certs/key.pem
     reverse_proxy localhost:5000
     encode gzip
     log {
-        output file /var/log/caddy/sonoshub.log {
+        output file /var/log/caddy/sndctrl.log {
             roll_size 10mb
             roll_keep 5
         }
     }
 }
 
-http://{$SONOSHUB_HOSTNAME} {
-    redir https://{$SONOSHUB_HOSTNAME}{uri} permanent
+http://{$SNDCTRL_HOSTNAME} {
+    redir https://{$SNDCTRL_HOSTNAME}{uri} permanent
 }
 
 :8080 {
@@ -90,19 +90,19 @@ http://{$SONOSHUB_HOSTNAME} {
 CADDYFILE
 
     # Create environment file for Caddy
-    cat > /etc/sonoshub/device.env << EOF
-SONOSHUB_HOSTNAME=${HOSTNAME}
+    cat > /etc/sndctrl/device.env << EOF
+SNDCTRL_HOSTNAME=${HOSTNAME}
 EOF
 
     # Create Caddy systemd override
     mkdir -p /etc/systemd/system/caddy.service.d
-    cat > /etc/systemd/system/caddy.service.d/sonoshub.conf << 'OVERRIDE'
+    cat > /etc/systemd/system/caddy.service.d/sndctrl.conf << 'OVERRIDE'
 [Unit]
-After=network-online.target sonos-sound-hub.service
-Requires=sonos-sound-hub.service
+After=network-online.target sndctrl.service
+Requires=sndctrl.service
 
 [Service]
-EnvironmentFile=/etc/sonoshub/device.env
+EnvironmentFile=/etc/sndctrl/device.env
 OVERRIDE
 
     systemctl daemon-reload
@@ -113,11 +113,11 @@ OVERRIDE
 
 # Call these after certificate registration
 install_caddy
-install_sonos_sound_hub
+install_sndctrl
 configure_caddy
 
 # Start services
-systemctl start sonos-sound-hub
+systemctl start sndctrl
 systemctl start caddy
 ```
 
@@ -125,7 +125,7 @@ systemctl start caddy
 
 Create these scripts that will be installed on the device:
 
-#### `device/scripts/sonoshub-register`
+#### `device/scripts/sndctrl-register`
 
 ```bash
 #!/bin/bash
@@ -133,7 +133,7 @@ Create these scripts that will be installed on the device:
 
 set -e
 
-CONFIG_DIR="/etc/sonoshub"
+CONFIG_DIR="/etc/sndctrl"
 CERT_DIR="${CONFIG_DIR}/certs"
 ENV_FILE="${CONFIG_DIR}/device.env"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
@@ -185,7 +185,7 @@ cat > "${CONFIG_DIR}/metadata.json" << EOF
 EOF
 
 # Update environment file
-echo "SONOSHUB_HOSTNAME=${HOSTNAME}" > "$ENV_FILE"
+echo "SNDCTRL_HOSTNAME=${HOSTNAME}" > "$ENV_FILE"
 
 # Delete config file (contains secret)
 rm -f "$CONFIG_FILE"
@@ -197,7 +197,7 @@ log_info "Certificate expires: $EXPIRES_AT"
 systemctl reload caddy 2>/dev/null || true
 ```
 
-#### `device/scripts/sonoshub-renew-cert`
+#### `device/scripts/sndctrl-renew-cert`
 
 ```bash
 #!/bin/bash
@@ -205,10 +205,10 @@ systemctl reload caddy 2>/dev/null || true
 
 set -e
 
-CONFIG_DIR="/etc/sonoshub"
+CONFIG_DIR="/etc/sndctrl"
 CERT_DIR="${CONFIG_DIR}/certs"
 METADATA_FILE="${CONFIG_DIR}/metadata.json"
-LOG_FILE="/var/log/sonoshub/cert-renewal.log"
+LOG_FILE="/var/log/sndctrl/cert-renewal.log"
 
 log_info() { echo "[$(date -Iseconds)] [INFO] $1" | tee -a "$LOG_FILE"; }
 log_error() { echo "[$(date -Iseconds)] [ERROR] $1" | tee -a "$LOG_FILE" >&2; }
@@ -273,24 +273,24 @@ systemctl reload caddy
 
 ### 3. Systemd Services (`device/systemd/`)
 
-#### `device/systemd/sonoshub-cert-renewal.service`
+#### `device/systemd/sndctrl-cert-renewal.service`
 
 ```ini
 [Unit]
-Description=Sonos Sound Hub Certificate Renewal
+Description=Sound Control Certificate Renewal
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/sonoshub-renew-cert
+ExecStart=/usr/local/bin/sndctrl-renew-cert
 ```
 
-#### `device/systemd/sonoshub-cert-renewal.timer`
+#### `device/systemd/sndctrl-cert-renewal.timer`
 
 ```ini
 [Unit]
-Description=Daily certificate renewal check for Sonos Sound Hub
+Description=Daily certificate renewal check for Sound Control
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -312,7 +312,7 @@ cat > "$CONFIG_FILE" << EOF
     "deviceId": "${DEVICE_ID}",
     "deviceSecret": "${DEVICE_SECRET}",
     "serverUrl": "${SERVER_URL}",
-    "sonoshubVersion": "${SONOSHUB_VERSION:-latest}"
+    "sndctrlVersion": "${SNDCTRL_VERSION:-latest}"
 }
 EOF
 ```
@@ -329,11 +329,11 @@ sndctl-server/
 │   ├── boot/
 │   │   └── firstrun.sh          # Updated with app installation
 │   ├── scripts/
-│   │   ├── sonoshub-register    # NEW
-│   │   └── sonoshub-renew-cert  # NEW
+│   │   ├── sndctrl-register    # NEW
+│   │   └── sndctrl-renew-cert  # NEW
 │   ├── systemd/
-│   │   ├── sonoshub-cert-renewal.service  # NEW
-│   │   └── sonoshub-cert-renewal.timer    # NEW
+│   │   ├── sndctrl-cert-renewal.service  # NEW
+│   │   └── sndctrl-cert-renewal.timer    # NEW
 │   └── configs/
 │       └── (generated device configs)
 ├── api/
@@ -343,8 +343,8 @@ sndctl-server/
 
 ## Integration Points
 
-| Component | sndctl-server | SonosSoundHub |
-|-----------|---------------|---------------|
+| Component | sndctl-server | Sndctrl |
+|-----------|---------------|---------|
 | Certificate API | ✓ Implements | Uses via scripts |
 | Device secrets | ✓ Generates & stores | N/A |
 | Registration scripts | ✓ Provides | N/A |
@@ -354,10 +354,10 @@ sndctl-server/
 
 ## Release Workflow
 
-1. **SonosSoundHub** publishes `.deb` releases to GitHub Releases
+1. **Sndctrl** publishes `.deb` releases to GitHub Releases
 2. **sndctl-server** `firstrun.sh` downloads and installs the latest release
 3. Caddy configuration references certificate paths from sndctl-server
-4. Both systems use `/etc/sonoshub/` as the shared configuration directory
+4. Both systems use `/etc/sndctrl/` as the shared configuration directory
 
 ## Testing
 
@@ -369,6 +369,6 @@ To test the integration:
    - Connect to WiFi via comitup
    - Register with sndctl-server API
    - Receive certificate
-   - Install Sonos Sound Hub from GitHub releases
+   - Install Sound Control from GitHub releases
    - Start Caddy with HTTPS
 4. Access device at `https://{device-id}.sndctl.app`

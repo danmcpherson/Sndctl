@@ -1,5 +1,5 @@
 /**
- * Voice Assistant Module for Sonos Sound Hub
+ * Voice Assistant Module for Sound Control
  * Uses OpenAI Realtime API for voice-controlled Sonos interaction
  */
 window.voiceAssistant = {

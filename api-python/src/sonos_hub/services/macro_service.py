@@ -72,7 +72,7 @@ class MacroService:
             logger.info("Created data directory: %s", directory)
         
         if not self._macros_file_path.exists():
-            default_content = """# SonosSoundHub Macros
+            default_content = """# Sound Control Macros
 # Format: macro_name = speaker action args : speaker action args
 # Example: morning = Kitchen volume 40 : Kitchen play_favourite "Radio 4"
 
@@ -189,7 +189,7 @@ class MacroService:
             macros.append(macro)
             
             # Write to file
-            content = "# SonosSoundHub Macros\n"
+            content = "# Sound Control Macros\n"
             content += "# Format: macro_name = speaker action args : speaker action args\n\n"
             
             for m in sorted(macros, key=lambda x: x.name):
@@ -231,7 +231,7 @@ class MacroService:
                 return False
             
             # Write to file
-            content = "# SonosSoundHub Macros\n\n"
+            content = "# Sound Control Macros\n\n"
             
             for m in sorted(macros, key=lambda x: x.name):
                 if m.description:
