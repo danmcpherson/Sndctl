@@ -12,44 +12,42 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rid: [ linux-arm, linux-arm64 ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          dotnet-version: '8.0.x'
+          python-version: '3.11'
 
-      - name: Restore
-        run: dotnet restore api/api.csproj
-
-      - name: Publish ${{ matrix.rid }}
+      - name: Set version
         run: |
-          dotnet publish api/api.csproj \
-            -c Release \
-            -r ${{ matrix.rid }} \
-            --self-contained false \
-            -p:PublishSingleFile=true \
-            -p:DebugType=embedded \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o publish/${{ matrix.rid }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          else
+            echo "VERSION=0.0.0-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          fi
 
-      - name: Package ${{ matrix.rid }}
+      - name: Package Python application
         run: |
-          tar -czf sonos-sound-hub-${{ matrix.rid }}.tar.gz -C publish/${{ matrix.rid }} .
+          mkdir -p package/sonos-sound-hub
+          cp -r api-python/src package/sonos-sound-hub/
+          cp api-python/pyproject.toml package/sonos-sound-hub/
+          cp -r api/wwwroot package/sonos-sound-hub/
+          cp -r api/data package/sonos-sound-hub/
+          cp packaging/sonos-sound-hub.service package/sonos-sound-hub/
+          cp packaging/postinstall.sh package/sonos-sound-hub/
+          tar -czf sonos-sound-hub-${{ env.VERSION }}.tar.gz -C package sonos-sound-hub
 
-      - name: Upload artifact ${{ matrix.rid }}
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sonos-sound-hub-${{ matrix.rid }}
-          path: sonos-sound-hub-${{ matrix.rid }}.tar.gz
+          name: sonos-sound-hub-${{ env.VERSION }}
+          path: sonos-sound-hub-${{ env.VERSION }}.tar.gz
 
       - name: Release tag assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: sonos-sound-hub-${{ matrix.rid }}.tar.gz
+          files: sonos-sound-hub-${{ env.VERSION }}.tar.gz

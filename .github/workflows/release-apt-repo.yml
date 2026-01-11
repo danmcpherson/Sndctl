@@ -21,12 +21,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - rid: linux-arm
-            arch: armhf
-          - rid: linux-arm64
-            arch: arm64
+          - arch: armhf
+          - arch: arm64
+          - arch: amd64
     env:
-      RID: ${{ matrix.rid }}
       ARCH: ${{ matrix.arch }}
     steps:
       - name: Checkout
@@ -46,25 +44,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dpkg-dev
 
-      - name: Set up .NET 8
-        uses: actions/setup-dotnet@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          dotnet-version: '8.0.x'
+          python-version: '3.11'
 
-      - name: Restore
-        run: dotnet restore api/api.csproj
-
-      - name: Publish ${{ env.RID }}
+      - name: Verify Python package structure
         run: |
-          dotnet publish api/api.csproj \
-            -c Release \
-            -r ${{ env.RID }} \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:DebugType=embedded \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:InformationalVersion=${{ env.VERSION }} \
-            -o publish/${{ env.RID }}
+          test -f api-python/pyproject.toml
+          test -d api-python/src/sonos_hub
 
       - name: Install nfpm
         run: |
@@ -170,7 +158,3 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
-          folder: repo

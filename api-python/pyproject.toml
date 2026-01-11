@@ -1,0 +1,26 @@
+[project]
+name = "sonos-hub"
+version = "0.1.0"
+description = "SonosSoundHub - A web-based Sonos controller for Raspberry Pi"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.25.0",
+    "python-multipart>=0.0.9",
+    "cachetools>=5.3.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpx"]
+
+[project.scripts]
+sonos-hub = "sonos_hub.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

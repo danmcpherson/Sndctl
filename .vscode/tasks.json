@@ -2,7 +2,65 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
+      "label": "python-run",
+      "command": "${workspaceFolder}/api-python/.venv/bin/python",
+      "args": [
+        "-m",
+        "uvicorn",
+        "sonos_hub.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5001",
+        "--reload"
+      ],
+      "type": "process",
+      "isBackground": true,
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/api-python",
+        "env": {
+          "SONOS_HUB_DATA_DIRECTORY": "../api/data",
+          "SONOS_HUB_WWWROOT_PATH": "../api/wwwroot",
+          "SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE": "true"
+        }
+      }
+    },
+    {
+      "label": "python-install",
+      "command": "python3",
+      "args": [
+        "-m",
+        "venv",
+        ".venv"
+      ],
+      "type": "process",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/api-python"
+      }
+    },
+    {
+      "label": "python-deps",
+      "command": "${workspaceFolder}/api-python/.venv/bin/pip",
+      "args": [
+        "install",
+        "-e",
+        "."
+      ],
+      "type": "process",
+      "dependsOn": "python-install",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/api-python"
+      }
+    },
+    {
+      "label": "build (legacy .NET)",
       "command": "dotnet",
       "args": [
         "build",
@@ -10,23 +68,19 @@
         "/consoleloggerparameters:NoSummary"
       ],
       "type": "process",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
       "problemMatcher": "$msCompile",
       "options": {
         "cwd": "${workspaceFolder}/api"
       }
     },
     {
-      "label": "run",
+      "label": "run (legacy .NET)",
       "command": "dotnet",
       "args": [
         "run"
       ],
       "type": "process",
-      "dependsOn": "build",
+      "dependsOn": "build (legacy .NET)",
       "isBackground": true,
       "problemMatcher": {
         "owner": "csharp",
@@ -50,7 +104,7 @@
       }
     },
     {
-      "label": "clean",
+      "label": "clean (legacy .NET)",
       "command": "dotnet",
       "args": [
         "clean",
@@ -64,7 +118,7 @@
       }
     },
     {
-      "label": "publish",
+      "label": "publish (legacy .NET)",
       "command": "dotnet",
       "args": [
         "publish",

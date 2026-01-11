@@ -89,9 +89,11 @@ Then install the required [soco-cli](https://github.com/avantrec/soco-cli) depen
 pipx install soco-cli
 ```
 
-Allow the service to bind to port 80 (run once after install):
+Set up the Python virtual environment:
 ```bash
-sudo setcap 'cap_net_bind_service=+ep' /opt/sonos-sound-hub/api
+cd /opt/sonos-sound-hub
+sudo python3 -m venv .venv
+sudo .venv/bin/pip install -e .
 ```
 
 **Start on boot:**
@@ -113,8 +115,8 @@ sudo .venv/bin/pip install -e .
 
 ### Requirements
 
-- Raspberry Pi 3B+ or newer (32-bit or 64-bit Pi OS)
-- Python 3.11+ with `pipx`
+- Raspberry Pi Zero W, 3B+ or newer (32-bit or 64-bit Pi OS)
+- Python 3.9+ with `pipx`
 - Your Pi must be on the same network as your Sonos speakers
 
 ---
@@ -206,7 +208,7 @@ The MCP server exposes 28 tools for complete Sonos control:
 | Speakers not found | Ensure your Pi is on the same network as your Sonos speakers |
 | Can't access the UI | Check that the service is running: `sudo systemctl status sonos-sound-hub` |
 | Port already in use | Another app is using port 80 or 8000. Stop it or change ports in settings |
-| Permission denied on startup | Grant low-port bind: `sudo setcap 'cap_net_bind_service=+ep' /opt/sonos-sound-hub/api` or add `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit |
+| Permission denied on startup | The systemd service includes capability settings for port 80. Ensure you're running the latest service file. |
 
 ---
 

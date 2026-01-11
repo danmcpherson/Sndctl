@@ -9,10 +9,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     WebRootPath = Path.Combine(baseDir, "wwwroot")
 });
 
-// Listen on all interfaces for Pi deployment (can be overridden by launchSettings.json in development)
+// Listen on localhost:5000 for Caddy reverse proxy (can be overridden by launchSettings.json in development)
+// Caddy handles external HTTPS on ports 80/443 and proxies to this
 if (builder.Environment.IsProduction())
 {
-    builder.WebHost.UseUrls("http://0.0.0.0:80");
+    builder.WebHost.UseUrls("http://127.0.0.1:5000");
 }
 
 // Add services

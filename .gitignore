@@ -47,5 +47,23 @@ Thumbs.db
 *.swo
 *~
 .idea/
-sonos-mcp-server/src/sonos_mcp_server/__pycache__/*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+*.egg
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
