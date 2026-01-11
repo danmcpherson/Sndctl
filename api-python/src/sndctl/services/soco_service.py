@@ -9,6 +9,9 @@ soco-cli is still used for macro execution (complex chained commands).
 
 import asyncio
 import logging
+import re
+import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
@@ -37,6 +40,54 @@ class SoCoService:
         self._last_discovery: datetime | None = None
         self._discovery_lock = asyncio.Lock()
     
+    def _scan_ip_for_sonos(self, ip: str) -> tuple[str, str] | None:
+        """Check if a Sonos speaker exists at the given IP.
+        
+        Returns:
+            Tuple of (ip, speaker_name) if found, None otherwise.
+        """
+        try:
+            result = subprocess.run(
+                ["curl", "-s", "--connect-timeout", "1", f"http://{ip}:1400/status/zp"],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            if "ZPSupportInfo" in result.stdout:
+                match = re.search(r'<ZoneName>([^<]+)</ZoneName>', result.stdout)
+                if match:
+                    return (ip, match.group(1))
+        except Exception:
+            pass
+        return None
+    
+    def _discover_by_ip_scan(self, subnet: str = "192.168.1") -> dict[str, SoCo]:
+        """Fallback discovery by scanning IP range.
+        
+        Used when multicast discovery doesn't work (e.g., Docker).
+        """
+        speakers: dict[str, SoCo] = {}
+        ips_to_scan = [f"{subnet}.{i}" for i in range(1, 255)]
+        
+        logger.info("Falling back to IP scan discovery on %s.x", subnet)
+        
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            futures = {executor.submit(self._scan_ip_for_sonos, ip): ip for ip in ips_to_scan}
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    ip, name = result
+                    try:
+                        device = SoCo(ip)
+                        # Verify it's reachable
+                        _ = device.player_name
+                        speakers[name] = device
+                        logger.info("Found speaker via IP scan: %s at %s", name, ip)
+                    except Exception as e:
+                        logger.debug("Could not connect to %s: %s", ip, e)
+        
+        return speakers
+    
     async def discover_speakers(self, force: bool = False) -> list[str]:
         """Discover all Sonos speakers on the network.
         
@@ -64,10 +115,17 @@ class SoCoService:
                         if speaker.player_name
                     }
                     self._last_discovery = datetime.now(timezone.utc)
-                    logger.info("Discovered %d speakers", len(self._speakers_cache))
+                    logger.info("Discovered %d speakers via multicast", len(self._speakers_cache))
                     return list(self._speakers_cache.keys())
                 else:
-                    logger.warning("No speakers discovered")
+                    logger.warning("Multicast discovery found no speakers, trying IP scan")
+                    # Fallback to IP scan (useful in Docker where multicast doesn't work)
+                    scanned = await asyncio.to_thread(self._discover_by_ip_scan)
+                    if scanned:
+                        self._speakers_cache = scanned
+                        self._last_discovery = datetime.now(timezone.utc)
+                        logger.info("Discovered %d speakers via IP scan", len(self._speakers_cache))
+                        return list(self._speakers_cache.keys())
                     return []
                     
             except Exception as e:
@@ -125,9 +183,15 @@ class SoCoService:
                 speaker.battery_level = battery
                 
         except SoCoException as e:
-            logger.error("SoCo error for %s: %s", speaker_name, e)
-            speaker.is_offline = True
-            speaker.error_message = str(e)
+            error_str = str(e)
+            # Satellite speakers (surrounds, subs) often return empty responses
+            if error_str == "b''" or not error_str:
+                logger.debug("Satellite speaker %s doesn't support this operation", speaker_name)
+                speaker.error_message = "Satellite speaker - view main speaker"
+            else:
+                logger.error("SoCo error for %s: %s", speaker_name, e)
+                speaker.is_offline = True
+                speaker.error_message = error_str
         except Exception as e:
             logger.error("Failed to get speaker info for %s: %s", speaker_name, e)
             speaker.error_message = str(e)
@@ -270,6 +334,24 @@ class SoCoService:
             logger.error("Set mute failed for %s: %s", speaker_name, e)
             return False
     
+    def _get_any_coordinator(self) -> SoCo | None:
+        """Get any coordinator speaker from the cache.
+        
+        Coordinators are needed for operations like getting favorites.
+        Non-coordinator speakers (satellites) may fail these operations.
+        
+        Returns:
+            A coordinator SoCo instance, or None if none found.
+        """
+        for device in self._speakers_cache.values():
+            try:
+                if device.is_coordinator:
+                    return device
+            except Exception:
+                continue
+        # Fallback to any speaker
+        return next(iter(self._speakers_cache.values()), None) if self._speakers_cache else None
+    
     async def get_favorites(self, speaker_name: str) -> list[Favorite]:
         """Get Sonos favorites.
         
@@ -281,11 +363,17 @@ class SoCoService:
         """
         device = self._get_speaker(speaker_name)
         if not device:
-            # Try to get any speaker
-            if self._speakers_cache:
-                device = next(iter(self._speakers_cache.values()))
-            else:
+            # Try to get a coordinator (needed for favorites)
+            device = await asyncio.to_thread(self._get_any_coordinator)
+            if not device:
                 return []
+        
+        # Need to use the group coordinator
+        try:
+            coordinator = await asyncio.to_thread(lambda: device.group.coordinator)
+            device = coordinator
+        except Exception:
+            pass  # Use original device if group.coordinator fails
         
         try:
             favorites = await asyncio.to_thread(self._get_favorites_sync, device)
