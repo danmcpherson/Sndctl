@@ -1,9 +1,9 @@
  // For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
-	"name": "Raspberry Pi Web App (.NET)",
+	"name": "Sonos Sound Hub (Python)",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/dotnet:1-8.0",
+	"image": "mcr.microsoft.com/devcontainers/python:1-3.11",
 	"features": {
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "lts"
@@ -19,7 +19,7 @@
 	"runArgs": ["--network=host"],
 
 	// Forward ports for noVNC and VNC access
-	"forwardPorts": [6080, 5901, 5000, 9222],
+	"forwardPorts": [6080, 5901, 5001, 9222],
 	"portsAttributes": {
 		"6080": {
 			"label": "noVNC Desktop",
@@ -29,7 +29,7 @@
 			"label": "VNC",
 			"onAutoForward": "silent"
 		},
-		"5000": {
+		"5001": {
 			"label": "API Server",
 			"onAutoForward": "notify"
 		},
@@ -40,7 +40,7 @@
 	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "dotnet restore api/api.csproj && sudo apt-get update && sudo apt-get install -y pipx wget gnupg python3-venv chromium && sudo mkdir -p /opt/google/chrome && sudo ln -sf /usr/bin/chromium /opt/google/chrome/chrome && pipx install soco-cli && python3 .devcontainer/setup-sonos-cache.py && rm -rf /workspaces/SonosSoundHub/sonos-mcp-server/.venv && python3 -m venv /workspaces/SonosSoundHub/sonos-mcp-server/.venv && /workspaces/SonosSoundHub/sonos-mcp-server/.venv/bin/pip install -e /workspaces/SonosSoundHub/sonos-mcp-server",
+	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y pipx wget gnupg chromium && sudo mkdir -p /opt/google/chrome && sudo ln -sf /usr/bin/chromium /opt/google/chrome/chrome && pipx install soco-cli && python3 .devcontainer/setup-sonos-cache.py && python3 -m venv /workspaces/SonosSoundHub/api-python/.venv && /workspaces/SonosSoundHub/api-python/.venv/bin/pip install -e /workspaces/SonosSoundHub/api-python && python3 -m venv /workspaces/SonosSoundHub/sonos-mcp-server/.venv && /workspaces/SonosSoundHub/sonos-mcp-server/.venv/bin/pip install -e /workspaces/SonosSoundHub/sonos-mcp-server",
 
 	// Start Chromium with remote debugging on VNC display
 	"postStartCommand": "DISPLAY=:1 chromium --remote-debugging-port=9222 --no-sandbox --disable-gpu --disable-dev-shm-usage &",
@@ -49,8 +49,7 @@
 	"customizations": {
 		"vscode": {	
 			"extensions": [
-				"ms-dotnettools.csdevkit",
-				"ms-dotnettools.csharp",
+				"ms-python.python",
 				"github.vscode-github-actions"
 			],
 			"settings": {

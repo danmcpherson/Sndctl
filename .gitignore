@@ -4,17 +4,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# .NET
-bin/
-obj/
-*.dll
-*.exe
-*.pdb
-*.cache
-*.user
-*.suo
-*.userprefs
-.vs/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+*.egg
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # SQLite databases
 data/*
@@ -34,9 +41,6 @@ publish/
 .env.local
 .env.*.local
 *.local
-appsettings.*.json
-!appsettings.json
-!appsettings.Development.json
 
 # OS
 .DS_Store
@@ -47,6 +51,7 @@ Thumbs.db
 *.swo
 *~
 .idea/
+.vs/
 
 # Python
 __pycache__/

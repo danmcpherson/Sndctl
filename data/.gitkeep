@@ -1,0 +1,6 @@
+# This directory will contain runtime data files:
+# - macros.txt (Sonos macro definitions)
+# - macros-metadata.json (macro metadata)
+# - app.db (SQLite database)
+#
+# These files are automatically created at runtime and should not be committed to git.

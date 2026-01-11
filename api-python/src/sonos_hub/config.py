@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     
     # Static files directory
-    wwwroot_path: str = "../api/wwwroot"
+    wwwroot_path: str = "../wwwroot"
     
     class Config:
         env_prefix = "SONOS_HUB_"

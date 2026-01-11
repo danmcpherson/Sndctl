@@ -23,11 +23,11 @@ contents:
     dst: /opt/sonos-sound-hub/pyproject.toml
     type: file
   # Static web files
-  - src: "api/wwwroot/**"
+  - src: "wwwroot/**"
     dst: /opt/sonos-sound-hub/wwwroot
     type: file
   # Data directory (macros)
-  - src: "api/data/**"
+  - src: "data/**"
     dst: /opt/sonos-sound-hub/data
     type: config
   # Systemd service

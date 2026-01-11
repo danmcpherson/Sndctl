@@ -24,8 +24,8 @@
       "options": {
         "cwd": "${workspaceFolder}/api-python",
         "env": {
-          "SONOS_HUB_DATA_DIRECTORY": "../api/data",
-          "SONOS_HUB_WWWROOT_PATH": "../api/wwwroot",
+          "SONOS_HUB_DATA_DIRECTORY": "../data",
+          "SONOS_HUB_WWWROOT_PATH": "../wwwroot",
           "SONOS_HUB_SOCO_CLI_USE_LOCAL_CACHE": "true"
         }
       }
@@ -57,80 +57,6 @@
       "problemMatcher": [],
       "options": {
         "cwd": "${workspaceFolder}/api-python"
-      }
-    },
-    {
-      "label": "build (legacy .NET)",
-      "command": "dotnet",
-      "args": [
-        "build",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
-      "type": "process",
-      "problemMatcher": "$msCompile",
-      "options": {
-        "cwd": "${workspaceFolder}/api"
-      }
-    },
-    {
-      "label": "run (legacy .NET)",
-      "command": "dotnet",
-      "args": [
-        "run"
-      ],
-      "type": "process",
-      "dependsOn": "build (legacy .NET)",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "csharp",
-        "pattern": {
-          "regexp": "^(?:.*?\\s)?(.*)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(\\w+):\\s+(.*)$",
-          "file": 1,
-          "line": 2,
-          "column": 3,
-          "severity": 4,
-          "code": 5,
-          "message": 6
-        },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*Building.*$",
-          "endsPattern": "^.*Application started.*$"
-        }
-      },
-      "options": {
-        "cwd": "${workspaceFolder}/api"
-      }
-    },
-    {
-      "label": "clean (legacy .NET)",
-      "command": "dotnet",
-      "args": [
-        "clean",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
-      "type": "process",
-      "problemMatcher": "$msCompile",
-      "options": {
-        "cwd": "${workspaceFolder}/api"
-      }
-    },
-    {
-      "label": "publish (legacy .NET)",
-      "command": "dotnet",
-      "args": [
-        "publish",
-        "--configuration",
-        "Release",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
-      "type": "process",
-      "problemMatcher": "$msCompile",
-      "options": {
-        "cwd": "${workspaceFolder}/api"
       }
     },
     {

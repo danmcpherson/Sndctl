@@ -67,8 +67,8 @@
 
 ## File Organization
 - Backend code in `api-python/src/sonos_hub/`
-- Frontend code in `api/wwwroot/` (served as static files)
-- Data files in `/data` directory (configurable)
+- Frontend code in `wwwroot/` (served as static files)
+- Data files in `data/` directory (configurable)
 - Keep structure simple and logical
 
 ## Performance Considerations

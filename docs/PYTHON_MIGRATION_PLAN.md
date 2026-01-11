@@ -1,26 +1,26 @@
-# Python Migration Plan: .NET to Python/FastAPI
+# Python Migration: Historical Reference
 
-> **✅ MIGRATION COMPLETED** - January 2026
+> **✅ MIGRATION COMPLETED & .NET CODE REMOVED** - January 2026
 >
 > This migration has been successfully completed. The Python/FastAPI backend is now 
-> the primary implementation, located in `/api-python/`. All endpoints have been 
-> migrated and tested.
+> the only implementation, located in `/api-python/`. The legacy .NET code has been
+> removed from the repository.
 
-## Executive Summary
+## Architecture Summary
 
-This document outlines the plan to migrate the SonosSoundHub backend from .NET 8/ASP.NET Core to Python/FastAPI. The primary driver is **Raspberry Pi Zero W compatibility** - .NET 8 does not support ARMv6 architecture.
+This document is preserved as a historical reference for the migration from .NET 8/ASP.NET Core to Python/FastAPI. The primary driver was **Raspberry Pi Zero W compatibility** - .NET 8 does not support ARMv6 architecture.
 
-### Current Stack → Target Stack
+### Technology Stack
 
-| Component | Current (.NET 8) | Target (Python) |
-|-----------|------------------|-----------------|
-| Web Framework | ASP.NET Core | FastAPI |
-| HTTP Server | Kestrel | Uvicorn |
-| Database | EF Core + SQLite | sqlite3 (stdlib) |
-| Sonos Control | soco-cli HTTP wrapper | Hybrid: SoCo library + soco-cli for macros |
-| Static Files | Kestrel StaticFiles | Starlette (built into FastAPI) |
-| Caching | IMemoryCache | cachetools / functools.lru_cache |
-| JSON | System.Text.Json | Pydantic (FastAPI native) |
+| Component | Implementation |
+|-----------|----------------|
+| Web Framework | FastAPI |
+| HTTP Server | Uvicorn |
+| Database | sqlite3 (stdlib) |
+| Sonos Control | Hybrid: SoCo library + soco-cli for macros |
+| Static Files | Starlette (built into FastAPI) |
+| Caching | cachetools / functools.lru_cache |
+| JSON | Pydantic (FastAPI native) |
 
 ---
 

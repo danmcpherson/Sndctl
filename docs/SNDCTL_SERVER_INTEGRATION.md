@@ -10,7 +10,7 @@ The sndctl-server handles:
 - First-boot configuration
 
 The Sonos Sound Hub provides:
-- The application itself (ASP.NET + frontend)
+- The application itself (Python/FastAPI + frontend)
 - Caddy reverse proxy configuration
 - `.deb` package for installation
 
