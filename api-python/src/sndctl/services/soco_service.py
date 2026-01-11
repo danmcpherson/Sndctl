@@ -207,13 +207,21 @@ class SoCoService:
             info["is_muted"] = device.mute
             info["ip_address"] = device.ip_address
             
-            # Get playback state
-            transport_info = device.get_current_transport_info()
+            # Check if coordinator
+            info["is_coordinator"] = device.is_coordinator
+            
+            # For grouped speakers, get playback state from coordinator
+            playback_device = device
+            if device.group and not device.is_coordinator:
+                playback_device = device.group.coordinator
+            
+            # Get playback state (from coordinator if grouped)
+            transport_info = playback_device.get_current_transport_info()
             state = transport_info.get("current_transport_state", "UNKNOWN")
             info["playback_state"] = state
             
-            # Get current track
-            track_info = device.get_current_track_info()
+            # Get current track (from coordinator if grouped)
+            track_info = playback_device.get_current_track_info()
             title = track_info.get("title", "")
             artist = track_info.get("artist", "")
             if title and artist:
@@ -224,9 +232,6 @@ class SoCoService:
             # Get speaker info
             speaker_info = device.get_speaker_info()
             info["model"] = speaker_info.get("model_name", "")
-            
-            # Check if coordinator
-            info["is_coordinator"] = device.is_coordinator
             
             # Get group members
             if device.group:
