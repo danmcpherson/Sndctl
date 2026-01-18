@@ -37,11 +37,30 @@ def _get_settings() -> Settings:
 
 
 def _get_api_key() -> str | None:
-    """Get the effective API key (user-provided or from config)."""
+    """Get the effective API key (user-provided or from config).
+    
+    Returns None if server mode is configured (uses sndctl-server instead).
+    """
+    settings = _get_settings()
+    
+    # If server mode is configured, we don't need a local API key
+    if settings.sndctl_server_url and settings.sndctl_device_id and settings.sndctl_device_secret:
+        return None
+    
     # User-provided key takes precedence
     if _user_provided_api_key:
         return _user_provided_api_key
-    return _get_settings().openai_api_key
+    return settings.openai_api_key
+
+
+def _is_server_mode() -> bool:
+    """Check if server mode is configured (ephemeral tokens from sndctl-server)."""
+    settings = _get_settings()
+    return bool(
+        settings.sndctl_server_url 
+        and settings.sndctl_device_id 
+        and settings.sndctl_device_secret
+    )
 
 
 def _get_system_instructions() -> str:
@@ -435,24 +454,140 @@ def _get_sonos_tools() -> list[dict]:
 async def create_session(voice: str = "verse") -> Any:
     """Get an ephemeral session token for the OpenAI Realtime API.
     
-    This keeps the API key secure on the server.
+    In server mode: Proxies to sndctl-server which holds the API key.
+    In standalone mode: Calls OpenAI directly with local API key.
     """
-    api_key = _get_api_key()
-    
-    if not api_key:
-        logger.warning("OpenAI API key not configured")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "OpenAI API key not configured",
-                "message": "Add OpenAI:ApiKey to appsettings.json or enter your API key in the Voice settings",
-            },
-        )
-    
     # Validate voice selection
     if voice.lower() not in AVAILABLE_VOICES:
         voice = "verse"
     
+    # Check if server mode is configured
+    if _is_server_mode():
+        return await _create_session_via_server(voice)
+    
+    # Standalone mode: use local API key
+    api_key = _get_api_key()
+    
+    if not api_key:
+        logger.warning("OpenAI API key not configured and server mode not enabled")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "OpenAI API key not configured",
+                "message": "Configure sndctl-server connection or enter your API key in Voice settings",
+            },
+        )
+    
+    return await _create_session_direct(api_key, voice)
+
+
+async def _create_session_via_server(voice: str) -> Any:
+    """Create a session by proxying through sndctl-server.
+    
+    The server holds the OpenAI API key and returns ephemeral tokens.
+    """
+    settings = _get_settings()
+    
+    server_url = settings.sndctl_server_url.rstrip("/")
+    device_id = settings.sndctl_device_id
+    device_secret = settings.sndctl_device_secret
+    
+    logger.info("Creating voice session via sndctl-server: %s", server_url)
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{server_url}/api/voice/session",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Device-Secret": device_secret,
+                },
+                json={
+                    "deviceId": device_id,
+                    "voice": voice.lower(),
+                    "instructions": _get_system_instructions(),
+                    "tools": _get_sonos_tools(),
+                },
+                timeout=30.0,
+            )
+            
+            if response.status_code == 401:
+                logger.error("sndctl-server authentication failed: invalid device secret")
+                raise HTTPException(
+                    status_code=401,
+                    detail={
+                        "error": "Device authentication failed",
+                        "message": "Invalid device credentials. Check SNDCTL_DEVICE_ID and SNDCTL_DEVICE_SECRET.",
+                    },
+                )
+            
+            if response.status_code == 403:
+                logger.error("Device has been revoked on sndctl-server")
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "error": "Device revoked",
+                        "message": "This device has been revoked. Contact support.",
+                    },
+                )
+            
+            if response.status_code == 404:
+                logger.error("Device not found on sndctl-server")
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": "Device not found",
+                        "message": "Device is not registered. Check SNDCTL_DEVICE_ID.",
+                    },
+                )
+            
+            if response.status_code == 429:
+                logger.warning("Rate limited by sndctl-server")
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "error": "Rate limited",
+                        "message": "Too many voice session requests. Try again later.",
+                    },
+                )
+            
+            if response.status_code != 200:
+                logger.error(
+                    "sndctl-server session creation failed: %d %s",
+                    response.status_code, response.text
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "error": "Server error",
+                        "message": "Failed to create voice session via server.",
+                    },
+                )
+            
+            return response.json()
+            
+    except httpx.TimeoutException:
+        logger.error("Timeout connecting to sndctl-server")
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error": "Server timeout",
+                "message": "sndctl-server did not respond in time.",
+            },
+        )
+    except httpx.HTTPError as e:
+        logger.error("Failed to connect to sndctl-server: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "Server connection failed",
+                "message": f"Could not connect to sndctl-server: {e}",
+            },
+        )
+
+
+async def _create_session_direct(api_key: str, voice: str) -> Any:
+    """Create a session by calling OpenAI directly (standalone mode)."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -507,15 +642,112 @@ async def create_session(voice: str = "verse") -> Any:
 
 @router.get("/status")
 async def get_status() -> dict:
-    """Check if voice feature is configured."""
+    """Check if voice feature is configured.
+    
+    Returns status based on configuration mode:
+    - Server mode: configured if sndctl-server credentials are set
+    - Standalone mode: configured if OpenAI API key is set
+    """
+    server_mode = _is_server_mode()
     api_key = _get_api_key()
-    return {
-        "configured": bool(api_key),
-        "availableVoices": AVAILABLE_VOICES,
-        "message": "Enter your OpenAI API key to enable voice control"
-        if not api_key
-        else "Voice control is configured and ready",
-    }
+    
+    if server_mode:
+        # Check subscription status with sndctl-server
+        return await _get_server_status()
+    elif api_key:
+        return {
+            "configured": True,
+            "enabled": True,
+            "mode": "standalone",
+            "availableVoices": AVAILABLE_VOICES,
+            "message": "Voice control is configured with local API key",
+        }
+    else:
+        return {
+            "configured": False,
+            "enabled": False,
+            "mode": "none",
+            "availableVoices": AVAILABLE_VOICES,
+            "message": "Voice control is not available",
+        }
+
+
+async def _get_server_status() -> dict:
+    """Get voice status from sndctl-server, including subscription info."""
+    settings = _get_settings()
+    
+    server_url = settings.sndctl_server_url.rstrip("/")
+    device_id = settings.sndctl_device_id
+    device_secret = settings.sndctl_device_secret
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{server_url}/api/voice/status",
+                params={"deviceId": device_id},
+                headers={"X-Device-Secret": device_secret},
+                timeout=10.0,
+            )
+            
+            if response.status_code == 200:
+                server_status = response.json()
+                return {
+                    "configured": True,
+                    "enabled": server_status.get("enabled", False),
+                    "mode": "server",
+                    "serverUrl": server_url,
+                    "deviceId": device_id,
+                    "subscription": server_status.get("subscription", "none"),
+                    "subscribeUrl": server_status.get("subscribeUrl", f"{server_url}/app/subscribe"),
+                    "availableVoices": AVAILABLE_VOICES,
+                    "message": server_status.get("message", ""),
+                }
+            elif response.status_code == 401:
+                logger.error("Invalid device credentials for status check")
+                return {
+                    "configured": False,
+                    "enabled": False,
+                    "mode": "server",
+                    "error": "invalid_credentials",
+                    "message": "Device authentication failed",
+                }
+            elif response.status_code == 404:
+                logger.error("Device not found on server")
+                return {
+                    "configured": False,
+                    "enabled": False,
+                    "mode": "server",
+                    "error": "device_not_found",
+                    "message": "Device not registered",
+                }
+            else:
+                logger.error("Server status check failed: %d", response.status_code)
+                return {
+                    "configured": True,
+                    "enabled": False,
+                    "mode": "server",
+                    "error": "server_error",
+                    "message": "Could not check subscription status",
+                }
+                
+    except httpx.TimeoutException:
+        logger.error("Timeout checking server status")
+        return {
+            "configured": True,
+            "enabled": False,
+            "mode": "server",
+            "error": "timeout",
+            "message": "Server did not respond",
+        }
+    except httpx.HTTPError as e:
+        logger.error("Failed to check server status: %s", e)
+        return {
+            "configured": True,
+            "enabled": False,
+            "mode": "server",
+            "error": "connection_failed",
+            "message": "Could not connect to server",
+        }
 
 
 @router.post("/apikey")

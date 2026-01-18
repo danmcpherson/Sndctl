@@ -1084,6 +1084,68 @@ details[open] .individual-volumes-summary .expand-icon {
     text-decoration: underline;
 }
 
+/* Voice Subscribe Panel */
+.voice-subscribe {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--spacing-lg);
+    min-height: 300px;
+}
+
+.voice-subscribe.hidden {
+    display: none;
+}
+
+.voice-subscribe-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.voice-subscribe-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+}
+
+.voice-subscribe-card h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 20px;
+    color: var(--color-gray-900);
+}
+
+.voice-subscribe-card .subscribe-message {
+    margin: 0 0 var(--spacing-lg) 0;
+    font-size: 14px;
+    color: var(--color-gray-600);
+    line-height: 1.5;
+}
+
+.voice-subscribe-btn {
+    display: inline-block;
+    padding: var(--spacing-md) var(--spacing-xl);
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.voice-subscribe-btn:hover {
+    background: var(--color-primary-dark, #3a7bc8);
+    text-decoration: none;
+    color: white;
+}
+
 /* Voice Settings Slide-out Panel */
 .voice-settings-overlay {
     position: fixed;

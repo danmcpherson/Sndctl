@@ -63,6 +63,11 @@ window.voiceAssistant = {
             
             const status = await response.json();
             
+            // Store the status for later use
+            this.configMode = status.mode || 'none';
+            this.voiceEnabled = status.enabled || false;
+            this.subscribeUrl = status.subscribeUrl || 'https://sndctl.app/app/subscribe';
+            
             const banner = document.getElementById('voice-status-banner');
             const setupPanel = document.getElementById('voice-setup');
             const settingsPanel = document.getElementById('voice-settings');
@@ -71,34 +76,59 @@ window.voiceAssistant = {
             const conversationPanel = document.getElementById('voice-conversation');
             const controlsPanel = document.querySelector('.voice-controls');
             const voiceButton = document.getElementById('voice-button');
+            const serverModeIndicator = document.getElementById('voice-server-mode');
+            const subscribePanel = document.getElementById('voice-subscribe');
+            
+            // Hide all optional panels first
+            banner?.classList.add('hidden');
+            setupPanel?.classList.add('hidden');
+            settingsPanel?.classList.add('hidden');
+            settingsOverlay?.classList.add('hidden');
+            settingsBtn?.classList.add('hidden');
+            subscribePanel?.classList.add('hidden');
+            serverModeIndicator?.classList.add('hidden');
             
             if (!status.configured) {
-                // Show setup UI, hide main interface
-                banner?.classList.add('hidden'); // Hide banner, show setup panel instead
-                setupPanel?.classList.remove('hidden');
-                settingsPanel?.classList.add('hidden');
-                settingsOverlay?.classList.add('hidden');
-                settingsBtn?.classList.add('hidden');
+                // Not configured - hide everything, show disabled state
                 conversationPanel?.classList.add('hidden');
                 if (controlsPanel) controlsPanel.style.display = 'none';
                 voiceButton?.classList.add('disabled');
+            } else if (!status.enabled) {
+                // Configured but not subscribed - show subscribe prompt
+                conversationPanel?.classList.add('hidden');
+                if (controlsPanel) controlsPanel.style.display = 'none';
+                voiceButton?.classList.add('disabled');
+                
+                // Show subscribe panel
+                if (subscribePanel) {
+                    subscribePanel.classList.remove('hidden');
+                    const subscribeLink = subscribePanel.querySelector('a');
+                    if (subscribeLink) {
+                        subscribeLink.href = status.subscribeUrl || 'https://sndctl.app/app/subscribe';
+                    }
+                    const subscribeMessage = subscribePanel.querySelector('.subscribe-message');
+                    if (subscribeMessage) {
+                        subscribeMessage.textContent = status.message || 'Subscribe to enable voice control';
+                    }
+                }
             } else {
-                // Show main interface (settings panel starts hidden but button is visible)
-                banner?.classList.add('hidden');
-                setupPanel?.classList.add('hidden');
-                settingsPanel?.classList.add('hidden'); // Panel starts hidden
-                settingsOverlay?.classList.add('hidden');
-                settingsBtn?.classList.remove('hidden'); // Show the toggle button
+                // Configured and enabled - show main interface
                 conversationPanel?.classList.remove('hidden');
                 if (controlsPanel) controlsPanel.style.display = '';
                 voiceButton?.classList.remove('disabled');
+                
+                // Show server mode indicator if connected via server
+                if (status.mode === 'server' && serverModeIndicator) {
+                    serverModeIndicator.classList.remove('hidden');
+                    serverModeIndicator.textContent = `Connected to ${status.serverUrl || 'server'}`;
+                }
             }
             
-            return status.configured;
+            return status.enabled;
         } catch (error) {
             console.error('Failed to check voice status:', error);
             
-            // On error, show setup panel so user can configure API key
+            // On error, hide everything and disable voice
             const setupPanel = document.getElementById('voice-setup');
             const settingsPanel = document.getElementById('voice-settings');
             const settingsOverlay = document.getElementById('voice-settings-overlay');
@@ -106,11 +136,13 @@ window.voiceAssistant = {
             const conversationPanel = document.getElementById('voice-conversation');
             const controlsPanel = document.querySelector('.voice-controls');
             const voiceButton = document.getElementById('voice-button');
+            const subscribePanel = document.getElementById('voice-subscribe');
             
-            setupPanel?.classList.remove('hidden');
+            setupPanel?.classList.add('hidden');
             settingsPanel?.classList.add('hidden');
             settingsOverlay?.classList.add('hidden');
             settingsBtn?.classList.add('hidden');
+            subscribePanel?.classList.add('hidden');
             conversationPanel?.classList.add('hidden');
             if (controlsPanel) controlsPanel.style.display = 'none';
             voiceButton?.classList.add('disabled');

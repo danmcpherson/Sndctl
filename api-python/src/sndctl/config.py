@@ -23,8 +23,15 @@ class Settings(BaseSettings):
     soco_cli_executable_path: str | None = None
     soco_cli_use_local_cache: bool = False
     
-    # OpenAI settings for voice control
+    # OpenAI settings for voice control (standalone mode)
     openai_api_key: str | None = None
+    
+    # sndctl-server settings (server mode - preferred)
+    # When configured, ephemeral tokens are obtained from the server
+    # instead of calling OpenAI directly with a local API key
+    sndctl_server_url: str | None = None  # e.g., "https://sndctl.app"
+    sndctl_device_id: str | None = None   # 12-character hex device ID
+    sndctl_device_secret: str | None = None  # 64-character hex device secret
     
     # Static files directory
     wwwroot_path: str = "../wwwroot"

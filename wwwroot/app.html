@@ -133,7 +133,7 @@
                         <span id="voice-status-text">Voice control not configured</span>
                     </div>
 
-                    <!-- API Key Setup (shown when not configured) -->
+                    <!-- API Key Setup (hidden - standalone mode is not exposed to users) -->
                     <div id="voice-setup" class="voice-setup hidden">
                         <div class="voice-setup-card">
                             <h3>🔑 OpenAI API Key Required</h3>
@@ -147,6 +147,18 @@
                             <p class="voice-setup-hint">
                                 <a href="https://platform.openai.com/api-keys" target="_blank">Get an API key from OpenAI →</a>
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Subscribe Panel (shown when connected but not subscribed) -->
+                    <div id="voice-subscribe" class="voice-subscribe hidden">
+                        <div class="voice-subscribe-card">
+                            <div class="voice-subscribe-icon">🎙️</div>
+                            <h3>Voice Control</h3>
+                            <p class="subscribe-message">Subscribe to enable voice control for your Sonos system.</p>
+                            <a href="https://sndctl.app/app/subscribe" target="_blank" class="voice-subscribe-btn">
+                                Subscribe Now
+                            </a>
                         </div>
                     </div>
 

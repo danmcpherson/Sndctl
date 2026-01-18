@@ -975,28 +975,18 @@ window.mobileApp = {
     },
 
     /**
-     * Parses group info from soco-cli output
-     * Format: "CoordinatorName: Member1, Member2" or "SpeakerName:" (no group)
+     * Parses group info from API response
+     * Input is an array of group objects: [{coordinator: "Name", members: ["M1", "M2"]}, ...]
+     * @param {Array} groupsData - Array of group objects from API
+     * @returns {Object} Map of speaker names to their group info
      */
-    parseGroupInfo(groupsText) {
+    parseGroupInfo(groupsData) {
         const groups = {};
-        if (!groupsText) return groups;
+        if (!groupsData || !Array.isArray(groupsData)) return groups;
 
-        const lines = groupsText.split('\n').filter(line => line.trim());
-        
-        lines.forEach(line => {
-            // Format is "CoordinatorName: Member1, Member2" or "SpeakerName:" for ungrouped
-            const colonIndex = line.indexOf(':');
-            if (colonIndex === -1) return;
-            
-            const coordinator = line.substring(0, colonIndex).trim();
-            const membersStr = line.substring(colonIndex + 1).trim();
-            
-            // If no members after colon, speaker is not grouped
-            if (!membersStr) return;
-            
-            // Parse members (comma-separated)
-            const memberNames = membersStr.split(',').map(s => s.trim()).filter(s => s);
+        groupsData.forEach(group => {
+            const coordinator = group.coordinator;
+            const memberNames = group.members || [];
             
             // Only track if there are actual group members
             if (memberNames.length > 0) {
