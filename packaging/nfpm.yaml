@@ -34,6 +34,19 @@ contents:
   - src: "packaging/sndctl.service"
     dst: /etc/systemd/system/sndctl.service
     type: file
+  # Systemd upgrade timer and service
+  - src: "packaging/sndctl-upgrade.timer"
+    dst: /etc/systemd/system/sndctl-upgrade.timer
+    type: file
+  - src: "packaging/sndctl-upgrade.service"
+    dst: /etc/systemd/system/sndctl-upgrade.service
+    type: file
+  # Upgrade script
+  - src: "packaging/sndctl-upgrade.sh"
+    dst: /opt/sndctl/bin/sndctl-upgrade.sh
+    type: file
+    file_info:
+      mode: 0755
   # MCP Server for AI assistant integration
   - src: "sonos-mcp-server/pyproject.toml"
     dst: /opt/sndctl/sonos-mcp-server/pyproject.toml

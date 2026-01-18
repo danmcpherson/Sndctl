@@ -1,0 +1,25 @@
+[Unit]
+Description=Sound Control Auto-Upgrade Check
+Documentation=https://github.com/danmcpherson/Sndctl
+After=network-online.target sndctl.service
+Wants=network-online.target
+Requires=sndctl.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sndctl/bin/sndctl-upgrade.sh
+User=root
+Group=root
+
+# Environment
+Environment=SNDCTL_API_URL=http://localhost:80
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sndctl-upgrade
+
+# Security hardening
+ProtectSystem=strict
+ReadWritePaths=/tmp/sndctl-upgrades /opt/sndctl
+PrivateTmp=true

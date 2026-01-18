@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     sndctl_device_id: str | None = None   # 12-character hex device ID
     sndctl_device_secret: str | None = None  # 64-character hex device secret
     
+    # Auto-upgrade settings
+    # Ring determines upgrade priority: 0 = canary (immediate), 1-3 = staged rollout
+    # Higher rings get updates later after lower rings validate stability
+    upgrade_ring: int = 3  # Default to most conservative ring
+    upgrade_enabled: bool = True  # Whether auto-upgrades are enabled
+    upgrade_check_hour: int = 4  # Hour (0-23) to check for upgrades (local time)
+    
     # Static files directory
     wwwroot_path: str = "../wwwroot"
     

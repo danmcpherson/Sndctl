@@ -13,6 +13,7 @@ from . import __version__
 from .config import get_settings
 from .routers import macros as macros_router
 from .routers import sonos as sonos_router
+from .routers import upgrades as upgrades_router
 from .routers import voice as voice_router
 from .services import MacroService, SocoCliService, SonosCommandService, SoCoService
 
@@ -104,6 +105,7 @@ async def add_cache_control_headers(request: Request, call_next):
 app.include_router(sonos_router.router)
 app.include_router(macros_router.router)
 app.include_router(voice_router.router)
+app.include_router(upgrades_router.router)
 
 
 @app.get("/api/version")

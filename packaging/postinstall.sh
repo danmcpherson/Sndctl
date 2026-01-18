@@ -18,6 +18,11 @@ fi
 echo "Reloading systemd..."
 systemctl daemon-reload
 
+# Enable and start the upgrade timer
+echo "Enabling auto-upgrade timer..."
+systemctl enable sndctl-upgrade.timer
+systemctl start sndctl-upgrade.timer
+
 echo ""
 echo "=========================================="
 echo "Sound Control installed successfully!"
@@ -26,6 +31,10 @@ echo ""
 echo "To start the service:"
 echo "  sudo systemctl enable sndctl"
 echo "  sudo systemctl start sndctl"
+echo ""
+echo "Auto-upgrade is enabled and will check at 4am daily."
+echo "To check timer status: systemctl status sndctl-upgrade.timer"
+echo "To disable auto-upgrade: systemctl disable sndctl-upgrade.timer"
 echo ""
 echo "Access the UI at: http://$(hostname -I | awk '{print $1}')/"
 echo ""
