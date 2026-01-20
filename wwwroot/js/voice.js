@@ -1,6 +1,12 @@
 /**
  * Voice Assistant Module for Sound Control
  * Uses OpenAI Realtime API for voice-controlled Sonos interaction
+ * 
+ * Safari PWA Notes:
+ * - Audio context must be created/resumed from user gesture
+ * - MediaStream tracks can end unexpectedly in PWA mode
+ * - Audio context can become "interrupted" (calls, Siri, etc.)
+ * - We create fresh audio context on each listening session for reliability
  */
 window.voiceAssistant = {
     // State
@@ -20,11 +26,17 @@ window.voiceAssistant = {
     // Configuration
     sampleRate: 24000,
     
+    // Detect if running as PWA (standalone mode)
+    isPWA: window.matchMedia('(display-mode: standalone)').matches || 
+           window.navigator.standalone === true,
+    
     /**
      * Initialize the voice assistant
      */
     async init() {
         console.log('Initializing Voice Assistant');
+        console.log('Running as PWA:', this.isPWA);
+        console.log('User Agent:', navigator.userAgent);
         
         // Load saved voice preference
         this.selectedVoice = localStorage.getItem('voiceAssistant.voice') || 'verse';
@@ -36,12 +48,50 @@ window.voiceAssistant = {
         // Check if voice is configured
         await this.checkStatus();
         
-        // Set up audio context on first user interaction
-        document.getElementById('voice-button')?.addEventListener('click', () => {
-            if (!this.audioContext) {
-                this.initAudioContext();
+        // Handle visibility changes (Safari PWA may suspend resources when hidden)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && this.isListening) {
+                console.log('App became visible while listening - checking audio state');
+                this.checkAudioHealth();
             }
-        }, { once: true });
+        });
+        
+        // Handle page show/hide for PWA (bfcache)
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                console.log('Page restored from bfcache');
+                // Audio context may need refresh after bfcache restore
+                if (this.audioContext && this.audioContext.state !== 'running') {
+                    console.log('Audio context needs refresh after bfcache restore');
+                }
+            }
+        });
+    },
+    
+    /**
+     * Check health of audio capture (for Safari PWA reliability)
+     */
+    checkAudioHealth() {
+        if (!this.isListening) return;
+        
+        // Check media stream
+        if (this.mediaStream) {
+            const tracks = this.mediaStream.getAudioTracks();
+            if (tracks.length === 0 || tracks[0].readyState !== 'live') {
+                console.warn('Audio track is no longer live');
+                this.showError('Microphone stopped. Tap to try again.');
+                this.stopListening();
+                return;
+            }
+        }
+        
+        // Check audio context
+        if (this.audioContext && this.audioContext.state !== 'running') {
+            console.warn('Audio context is not running:', this.audioContext.state);
+            this.audioContext.resume().catch(e => {
+                console.error('Failed to resume audio context:', e);
+            });
+        }
     },
 
     /**
@@ -259,17 +309,70 @@ window.voiceAssistant = {
 
     /**
      * Initialize Web Audio API context
+     * Safari/iOS PWA requires special handling for audio context
      */
     initAudioContext() {
         try {
+            // Close any existing context first (important for PWA reliability)
+            if (this.audioContext) {
+                try {
+                    this.audioContext.close();
+                } catch (e) {
+                    console.log('Could not close existing audio context:', e);
+                }
+                this.audioContext = null;
+            }
+            
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
                 sampleRate: this.sampleRate
             });
-            console.log('Audio context initialized, sample rate:', this.audioContext.sampleRate);
+            console.log('Audio context initialized, sample rate:', this.audioContext.sampleRate, 'state:', this.audioContext.state);
+            
+            // Handle iOS/Safari audio context interruptions (calls, Siri, etc.)
+            this.audioContext.onstatechange = () => {
+                console.log('AudioContext state changed:', this.audioContext.state);
+                if (this.audioContext.state === 'interrupted') {
+                    console.log('Audio context interrupted - will attempt resume on next user interaction');
+                }
+            };
+            
         } catch (error) {
             console.error('Failed to initialize audio context:', error);
             this.showError('Audio not supported on this device');
         }
+    },
+    
+    /**
+     * Ensure audio context is in a usable state
+     * Safari PWA may suspend/interrupt audio context unpredictably
+     */
+    async ensureAudioContextReady() {
+        if (!this.audioContext) {
+            this.initAudioContext();
+        }
+        
+        // Handle various audio context states
+        if (this.audioContext.state === 'suspended' || this.audioContext.state === 'interrupted') {
+            console.log('Resuming audio context from state:', this.audioContext.state);
+            try {
+                await this.audioContext.resume();
+                console.log('Audio context resumed, new state:', this.audioContext.state);
+            } catch (error) {
+                console.error('Failed to resume audio context:', error);
+                // In PWA mode, we may need to recreate the context entirely
+                this.initAudioContext();
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+            }
+        }
+        
+        // Final check
+        if (this.audioContext.state !== 'running') {
+            console.warn('Audio context is not running, state:', this.audioContext.state);
+        }
+        
+        return this.audioContext.state === 'running';
     },
 
     /**
@@ -323,31 +426,70 @@ window.voiceAssistant = {
 
             this.updateState('connecting');
             
-            // Request microphone permission
-            this.mediaStream = await navigator.mediaDevices.getUserMedia({
+            // Initialize audio context BEFORE requesting microphone (important for Safari PWA)
+            // This ensures the audio context is created from a user gesture
+            this.initAudioContext();
+            
+            // Resume audio context immediately (must be from user gesture)
+            const audioReady = await this.ensureAudioContextReady();
+            if (!audioReady) {
+                console.warn('Audio context not fully ready, continuing anyway...');
+            }
+            
+            // Clean up any existing media stream first (Safari PWA can have stale streams)
+            if (this.mediaStream) {
+                console.log('Cleaning up existing media stream before new request');
+                this.mediaStream.getTracks().forEach(track => track.stop());
+                this.mediaStream = null;
+            }
+            
+            // Request microphone permission with constraints optimized for Safari PWA
+            // Using simpler constraints for better Safari compatibility
+            const constraints = {
                 audio: {
-                    sampleRate: this.sampleRate,
-                    channelCount: 1,
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true
                 }
-            });
+            };
             
-            // Log microphone info
-            const audioTrack = this.mediaStream.getAudioTracks()[0];
+            console.log('Requesting microphone with constraints:', constraints);
+            this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Verify we got a valid stream with active tracks
+            const audioTracks = this.mediaStream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                throw new Error('No audio tracks available from microphone');
+            }
+            
+            const audioTrack = audioTracks[0];
             console.log('Microphone:', audioTrack.label);
+            console.log('Microphone enabled:', audioTrack.enabled);
+            console.log('Microphone readyState:', audioTrack.readyState);
             console.log('Microphone settings:', audioTrack.getSettings());
-
-            // Initialize audio context if needed
-            if (!this.audioContext) {
-                this.initAudioContext();
+            
+            // Check if track is live (Safari PWA issue)
+            if (audioTrack.readyState !== 'live') {
+                console.error('Audio track is not live, state:', audioTrack.readyState);
+                throw new Error('Microphone track is not active. Please try again.');
             }
             
-            // Resume audio context (required after user gesture)
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
-            }
+            // Monitor track ending (Safari PWA may end tracks unexpectedly)
+            audioTrack.onended = () => {
+                console.warn('Audio track ended unexpectedly');
+                if (this.isListening) {
+                    this.showError('Microphone stopped unexpectedly. Tap to try again.');
+                    this.stopListening();
+                }
+            };
+            
+            audioTrack.onmute = () => {
+                console.warn('Audio track muted');
+            };
+            
+            audioTrack.onunmute = () => {
+                console.log('Audio track unmuted');
+            };
 
             // Get ephemeral token and connect
             await this.connect();
@@ -357,6 +499,10 @@ window.voiceAssistant = {
             
             if (error.name === 'NotAllowedError') {
                 this.showError('Microphone permission denied');
+            } else if (error.name === 'NotFoundError') {
+                this.showError('No microphone found');
+            } else if (error.name === 'NotReadableError') {
+                this.showError('Microphone is in use by another app');
             } else {
                 this.showError('Failed to start: ' + error.message);
             }
@@ -410,11 +556,36 @@ window.voiceAssistant = {
     /**
      * WebSocket opened
      */
-    onWebSocketOpen() {
+    async onWebSocketOpen() {
         console.log('Connected to OpenAI Realtime API');
         this.isConnected = true;
         this.isListening = true;
         this.updateState('listening');
+        
+        // Verify audio context is still ready (Safari PWA may have issues)
+        if (this.audioContext && this.audioContext.state !== 'running') {
+            console.log('Audio context state before capture:', this.audioContext.state);
+            try {
+                await this.audioContext.resume();
+                console.log('Audio context resumed, state:', this.audioContext.state);
+            } catch (e) {
+                console.error('Failed to resume audio context:', e);
+            }
+        }
+        
+        // Verify media stream is still active
+        if (this.mediaStream) {
+            const tracks = this.mediaStream.getAudioTracks();
+            if (tracks.length > 0) {
+                console.log('Audio track state before capture:', tracks[0].readyState);
+                if (tracks[0].readyState !== 'live') {
+                    console.error('Audio track is not live, cannot start capture');
+                    this.showError('Microphone not ready. Please try again.');
+                    this.stopListening();
+                    return;
+                }
+            }
+        }
         
         // Start sending audio
         this.startAudioCapture();
@@ -858,6 +1029,7 @@ window.voiceAssistant = {
 
     /**
      * Start capturing audio from microphone
+     * Uses ScriptProcessorNode for Safari compatibility (AudioWorklet has issues in Safari PWA)
      */
     startAudioCapture() {
         if (!this.mediaStream || !this.audioContext) {
@@ -865,56 +1037,108 @@ window.voiceAssistant = {
             return;
         }
         
-        console.log('Starting audio capture, sample rate:', this.audioContext.sampleRate);
+        // Verify media stream is still active (Safari PWA issue)
+        const tracks = this.mediaStream.getAudioTracks();
+        if (tracks.length === 0 || tracks[0].readyState !== 'live') {
+            console.error('Media stream is not active, cannot start capture');
+            this.showError('Microphone not ready. Please try again.');
+            this.stopListening();
+            return;
+        }
         
-        const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-        const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        // Verify audio context is running
+        if (this.audioContext.state !== 'running') {
+            console.warn('Audio context state is not running:', this.audioContext.state);
+            // Try to resume it
+            this.audioContext.resume().then(() => {
+                console.log('Audio context resumed to:', this.audioContext.state);
+            }).catch(e => {
+                console.error('Failed to resume audio context:', e);
+            });
+        }
         
-        let audioChunkCount = 0;
+        console.log('Starting audio capture');
+        console.log('  Audio context sample rate:', this.audioContext.sampleRate);
+        console.log('  Audio context state:', this.audioContext.state);
+        console.log('  Media stream active:', this.mediaStream.active);
+        console.log('  Audio track state:', tracks[0].readyState);
         
-        processor.onaudioprocess = (e) => {
-            if (!this.isListening || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        try {
+            const source = this.audioContext.createMediaStreamSource(this.mediaStream);
             
-            const inputData = e.inputBuffer.getChannelData(0);
+            // Use ScriptProcessorNode (deprecated but better Safari PWA support than AudioWorklet)
+            // Buffer size of 4096 provides good balance of latency and reliability
+            const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
             
-            // Check if we're getting actual audio (not silence)
-            const maxVal = Math.max(...inputData.map(Math.abs));
-            if (audioChunkCount === 0 || audioChunkCount % 100 === 0) {
-                console.log(`Audio chunk ${audioChunkCount}, max level: ${maxVal.toFixed(4)}`);
-            }
-            audioChunkCount++;
+            let audioChunkCount = 0;
+            let silentChunkCount = 0;
+            const SILENCE_THRESHOLD = 0.001;
             
-            // Resample if needed (browser might not give us 24kHz)
-            const resampled = this.resampleAudio(inputData, this.audioContext.sampleRate, this.sampleRate);
+            processor.onaudioprocess = (e) => {
+                if (!this.isListening || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+                
+                const inputData = e.inputBuffer.getChannelData(0);
+                
+                // Check if we're getting actual audio (not silence)
+                const maxVal = Math.max(...inputData.map(Math.abs));
+                
+                // Track silent chunks to detect microphone issues
+                if (maxVal < SILENCE_THRESHOLD) {
+                    silentChunkCount++;
+                } else {
+                    silentChunkCount = 0;
+                }
+                
+                // Log audio level periodically
+                if (audioChunkCount === 0) {
+                    console.log(`First audio chunk received, max level: ${maxVal.toFixed(4)}`);
+                } else if (audioChunkCount % 100 === 0) {
+                    console.log(`Audio chunk ${audioChunkCount}, max level: ${maxVal.toFixed(4)}, silent streak: ${silentChunkCount}`);
+                }
+                audioChunkCount++;
+                
+                // Warn if we've had too many silent chunks (possible mic issue)
+                if (silentChunkCount === 50) {
+                    console.warn('Many silent audio chunks detected - microphone may not be capturing');
+                }
+                
+                // Resample if needed (browser might not give us 24kHz)
+                const resampled = this.resampleAudio(inputData, this.audioContext.sampleRate, this.sampleRate);
+                
+                // Convert to PCM16
+                const pcm16 = new Int16Array(resampled.length);
+                for (let i = 0; i < resampled.length; i++) {
+                    const s = Math.max(-1, Math.min(1, resampled[i]));
+                    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                
+                // Send as base64
+                const base64 = this.arrayBufferToBase64(pcm16.buffer);
+                this.ws.send(JSON.stringify({
+                    type: 'input_audio_buffer.append',
+                    audio: base64
+                }));
+            };
             
-            // Convert to PCM16
-            const pcm16 = new Int16Array(resampled.length);
-            for (let i = 0; i < resampled.length; i++) {
-                const s = Math.max(-1, Math.min(1, resampled[i]));
-                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
+            source.connect(processor);
             
-            // Send as base64
-            const base64 = this.arrayBufferToBase64(pcm16.buffer);
-            this.ws.send(JSON.stringify({
-                type: 'input_audio_buffer.append',
-                audio: base64
-            }));
-        };
-        
-        source.connect(processor);
-        // Connect to destination (required for ScriptProcessor to work)
-        // Use a gain node set to 0 to prevent feedback
-        const silentGain = this.audioContext.createGain();
-        silentGain.gain.value = 0;
-        processor.connect(silentGain);
-        silentGain.connect(this.audioContext.destination);
-        
-        this.audioProcessor = processor;
-        this.audioSource = source;
-        this.silentGain = silentGain;
-        
-        console.log('Audio capture started');
+            // Connect to destination (required for ScriptProcessor to work in Safari)
+            // Use a gain node set to 0 to prevent feedback/echo
+            const silentGain = this.audioContext.createGain();
+            silentGain.gain.value = 0;
+            processor.connect(silentGain);
+            silentGain.connect(this.audioContext.destination);
+            
+            this.audioProcessor = processor;
+            this.audioSource = source;
+            this.silentGain = silentGain;
+            
+            console.log('Audio capture started successfully');
+        } catch (error) {
+            console.error('Failed to start audio capture:', error);
+            this.showError('Failed to capture audio: ' + error.message);
+            this.stopListening();
+        }
     },
 
     /**
@@ -922,7 +1146,6 @@ window.voiceAssistant = {
      */
     async stopListening() {
         console.log('stopListening called');
-        console.trace('stopListening stack trace');
         this.isListening = false;
         
         // Close WebSocket
@@ -937,29 +1160,61 @@ window.voiceAssistant = {
 
     /**
      * Clean up resources
+     * Thorough cleanup is important for Safari PWA reliability
      */
     cleanup() {
         console.log('Cleaning up voice resources');
-        console.trace('cleanup stack trace');
         
-        // Stop audio processing
+        // Stop audio processing nodes
         if (this.audioProcessor) {
-            this.audioProcessor.disconnect();
+            try {
+                this.audioProcessor.onaudioprocess = null; // Clear callback first
+                this.audioProcessor.disconnect();
+            } catch (e) {
+                console.log('Error disconnecting processor:', e);
+            }
             this.audioProcessor = null;
         }
         if (this.audioSource) {
-            this.audioSource.disconnect();
+            try {
+                this.audioSource.disconnect();
+            } catch (e) {
+                console.log('Error disconnecting source:', e);
+            }
             this.audioSource = null;
         }
         if (this.silentGain) {
-            this.silentGain.disconnect();
+            try {
+                this.silentGain.disconnect();
+            } catch (e) {
+                console.log('Error disconnecting gain:', e);
+            }
             this.silentGain = null;
         }
         
-        // Stop media stream
+        // Stop media stream tracks
         if (this.mediaStream) {
-            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream.getTracks().forEach(track => {
+                console.log('Stopping track:', track.label, track.readyState);
+                track.onended = null; // Clear event handler
+                track.onmute = null;
+                track.onunmute = null;
+                track.stop();
+            });
             this.mediaStream = null;
+        }
+        
+        // Close audio context (Safari PWA: fresh context per session is more reliable)
+        if (this.audioContext) {
+            try {
+                // Don't close if we're still playing audio
+                if (!this.isPlayingAudio) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+            } catch (e) {
+                console.log('Error closing audio context:', e);
+            }
         }
         
         // Clear audio queue
