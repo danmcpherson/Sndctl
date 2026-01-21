@@ -71,6 +71,7 @@ def _get_system_instructions() -> str:
 - Adjust volume on speakers
 - Group and ungroup speakers
 - Play favorites, playlists, and radio stations
+- Browse and play music from the local library (artists, albums, tracks, genres)
 - Run automation macros
 - Get information about what's playing
 
@@ -80,6 +81,11 @@ Speaker names in this system may include: Kitchen, Living Room, Bedroom, Office,
 Users may refer to speakers casually - match to the closest speaker name.
 
 When users ask about macros, list them briefly. When they want to run one, use the run_macro function.
+
+For library requests:
+- Use search_library to find artists, albums, or tracks by name
+- Use browse_library_artists/albums/tracks/genres to list items
+- Use play_library_item to play something from the library
 
 Always respond conversationally and confirm actions you take."""
 
@@ -445,6 +451,90 @@ def _get_sonos_tools() -> list[dict]:
                     },
                 },
                 "required": ["name"],
+            },
+        },
+        # Music Library
+        {
+            "type": "function",
+            "name": "search_library",
+            "description": "Search the local music library for artists, albums, or tracks matching a search term",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search term to find in the library"},
+                    "category": {
+                        "type": "string",
+                        "enum": ["artists", "albums", "tracks"],
+                        "description": "Category to search in (default: albums)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+        {
+            "type": "function",
+            "name": "browse_library_artists",
+            "description": "List artists from the local music library",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {"type": "integer", "description": "Maximum number of artists to return (default: 20)"},
+                },
+                "required": [],
+            },
+        },
+        {
+            "type": "function",
+            "name": "browse_library_albums",
+            "description": "List albums from the local music library",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {"type": "integer", "description": "Maximum number of albums to return (default: 20)"},
+                },
+                "required": [],
+            },
+        },
+        {
+            "type": "function",
+            "name": "browse_library_tracks",
+            "description": "List tracks from the local music library",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {"type": "integer", "description": "Maximum number of tracks to return (default: 20)"},
+                },
+                "required": [],
+            },
+        },
+        {
+            "type": "function",
+            "name": "browse_library_genres",
+            "description": "List genres from the local music library",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_items": {"type": "integer", "description": "Maximum number of genres to return (default: 20)"},
+                },
+                "required": [],
+            },
+        },
+        {
+            "type": "function",
+            "name": "play_library_item",
+            "description": "Play an artist, album, track, or genre from the local music library",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "speaker": {"type": "string", "description": "Name of the Sonos speaker"},
+                    "name": {"type": "string", "description": "Name of the artist, album, track, or genre to play"},
+                    "category": {
+                        "type": "string",
+                        "enum": ["artists", "albums", "tracks", "genres"],
+                        "description": "Category of the item (default: albums)",
+                    },
+                },
+                "required": ["speaker", "name"],
             },
         },
     ]

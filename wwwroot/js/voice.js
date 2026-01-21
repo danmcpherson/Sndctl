@@ -955,6 +955,27 @@ window.voiceAssistant = {
                         arguments: args.arguments || []
                     });
                     break;
+                
+                // Music Library
+                case 'search_library':
+                    const searchCategory = args.category || 'albums';
+                    endpoint = `/api/library/${searchCategory}?search=${encodeURIComponent(args.query)}&max_items=10`;
+                    break;
+                case 'browse_library_artists':
+                    endpoint = `/api/library/artists?max_items=${args.max_items || 20}`;
+                    break;
+                case 'browse_library_albums':
+                    endpoint = `/api/library/albums?max_items=${args.max_items || 20}`;
+                    break;
+                case 'browse_library_tracks':
+                    endpoint = `/api/library/tracks?max_items=${args.max_items || 20}`;
+                    break;
+                case 'browse_library_genres':
+                    endpoint = `/api/library/genres?max_items=${args.max_items || 20}`;
+                    break;
+                case 'play_library_item':
+                    // First search for the item, then play it
+                    return await this.playLibraryItem(args.speaker, args.name, args.category || 'albums');
                     
                 default:
                     return { error: `Unknown function: ${name}` };
@@ -973,6 +994,61 @@ window.voiceAssistant = {
             
         } catch (error) {
             console.error('Function execution error:', error);
+            return { error: error.message };
+        }
+    },
+
+    /**
+     * Play a library item by searching for it first
+     */
+    async playLibraryItem(speaker, name, category = 'albums') {
+        try {
+            // Search for the item in the library
+            const searchResponse = await fetch(
+                `/api/library/${category}?search=${encodeURIComponent(name)}&max_items=5`
+            );
+            const searchResult = await searchResponse.json();
+            
+            if (!searchResult.items || searchResult.items.length === 0) {
+                return { error: `Could not find "${name}" in ${category}` };
+            }
+            
+            // Find best match (exact or first result)
+            const nameLower = name.toLowerCase();
+            let item = searchResult.items.find(i => 
+                i.title?.toLowerCase() === nameLower
+            ) || searchResult.items[0];
+            
+            if (!item.uri) {
+                return { error: `Found "${item.title}" but it has no playable URI` };
+            }
+            
+            // Play the item
+            const playResponse = await fetch(
+                `/api/sonos/speakers/${encodeURIComponent(speaker)}/play-uri`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uri: item.uri })
+                }
+            );
+            const playResult = await playResponse.json();
+            
+            if (playResult.success) {
+                return { 
+                    success: true, 
+                    message: `Now playing "${item.title}" on ${speaker}`,
+                    item: {
+                        title: item.title,
+                        artist: item.artist,
+                        category: category
+                    }
+                };
+            } else {
+                return { error: 'Failed to play the item' };
+            }
+        } catch (error) {
+            console.error('Error playing library item:', error);
             return { error: error.message };
         }
     },

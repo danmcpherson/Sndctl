@@ -1748,6 +1748,8 @@ details[open] .individual-volumes-summary .expand-icon {
     width: 100%;
     max-width: 400px;
     margin-top: var(--spacing-md);
+    padding: 0 var(--spacing-md);
+    box-sizing: border-box;
 }
 
 .voice-text-input {
