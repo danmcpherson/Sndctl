@@ -26,6 +26,17 @@ window.voiceAssistant = {
     // Configuration
     sampleRate: 24000,
     
+    // Voice Activity Detection (VAD) settings
+    vadEnabled: true,
+    vadSensitivity: 0.015, // RMS threshold (0.001-0.1, higher = less sensitive)
+    vadSmoothingWindow: 3, // Number of frames to smooth over
+    vadEnergyHistory: [],
+    vadSpeechFrames: 0,
+    vadSilenceFrames: 0,
+    vadMinSpeechFrames: 3, // Minimum consecutive frames to start sending
+    vadMinSilenceFrames: 5, // Minimum consecutive frames to stop sending
+    vadIsSpeaking: false,
+    
     // Detect if running as PWA (standalone mode)
     isPWA: window.matchMedia('(display-mode: standalone)').matches || 
            window.navigator.standalone === true,
@@ -43,6 +54,21 @@ window.voiceAssistant = {
         const voiceSelect = document.getElementById('voice-select');
         if (voiceSelect) {
             voiceSelect.value = this.selectedVoice;
+        }
+        
+        // Load saved VAD sensitivity
+        const savedSensitivity = localStorage.getItem('voiceAssistant.vadSensitivity');
+        if (savedSensitivity) {
+            this.vadSensitivity = parseFloat(savedSensitivity);
+        }
+        const sensitivitySlider = document.getElementById('vad-sensitivity');
+        const sensitivityValue = document.getElementById('vad-value');
+        if (sensitivitySlider) {
+            const sliderValue = this.vadSensitivity * 1000; // Scale for slider (0-100)
+            sensitivitySlider.value = sliderValue;
+            if (sensitivityValue) {
+                sensitivityValue.textContent = Math.round(sliderValue);
+            }
         }
         
         // Check if voice is configured
@@ -286,6 +312,15 @@ window.voiceAssistant = {
             localStorage.setItem('voiceAssistant.voice', this.selectedVoice);
             console.log('Voice preference saved:', this.selectedVoice);
         }
+    },
+    
+    /**
+     * Update VAD sensitivity
+     */
+    updateVadSensitivity(value) {
+        this.vadSensitivity = value / 1000; // Scale from slider (0-100) to actual value
+        localStorage.setItem('voiceAssistant.vadSensitivity', this.vadSensitivity.toString());
+        console.log('VAD sensitivity updated:', this.vadSensitivity);
     },
     
     /**
@@ -1250,35 +1285,30 @@ window.voiceAssistant = {
             const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
             
             let audioChunkCount = 0;
-            let silentChunkCount = 0;
-            const SILENCE_THRESHOLD = 0.001;
+            let lastLogTime = Date.now();
             
             processor.onaudioprocess = (e) => {
                 if (!this.isListening || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
                 
                 const inputData = e.inputBuffer.getChannelData(0);
                 
-                // Check if we're getting actual audio (not silence)
-                const maxVal = Math.max(...inputData.map(Math.abs));
+                // Calculate RMS energy for voice activity detection
+                const rmsEnergy = this.calculateRMS(inputData);
                 
-                // Track silent chunks to detect microphone issues
-                if (maxVal < SILENCE_THRESHOLD) {
-                    silentChunkCount++;
-                } else {
-                    silentChunkCount = 0;
-                }
+                // Voice activity detection
+                const isSpeechDetected = this.vadEnabled ? this.detectVoiceActivity(rmsEnergy) : true;
                 
-                // Log audio level periodically
-                if (audioChunkCount === 0) {
-                    console.log(`First audio chunk received, max level: ${maxVal.toFixed(4)}`);
-                } else if (audioChunkCount % 100 === 0) {
-                    console.log(`Audio chunk ${audioChunkCount}, max level: ${maxVal.toFixed(4)}, silent streak: ${silentChunkCount}`);
+                // Log audio levels periodically (every 2 seconds)
+                const now = Date.now();
+                if (now - lastLogTime > 2000) {
+                    console.log(`Audio: RMS=${rmsEnergy.toFixed(4)}, Threshold=${this.vadSensitivity.toFixed(4)}, Speech=${isSpeechDetected}, Frames=${this.vadSpeechFrames}/${this.vadSilenceFrames}`);
+                    lastLogTime = now;
                 }
                 audioChunkCount++;
                 
-                // Warn if we've had too many silent chunks (possible mic issue)
-                if (silentChunkCount === 50) {
-                    console.warn('Many silent audio chunks detected - microphone may not be capturing');
+                // Only send audio when speech is detected (or VAD is disabled)
+                if (!isSpeechDetected) {
+                    return;
                 }
                 
                 // Resample if needed (browser might not give us 24kHz)
@@ -1321,11 +1351,76 @@ window.voiceAssistant = {
     },
 
     /**
+     * Calculate RMS (Root Mean Square) energy of audio signal
+     * @param {Float32Array} audioData - Audio samples
+     * @returns {number} RMS energy value
+     */
+    calculateRMS(audioData) {
+        let sum = 0;
+        for (let i = 0; i < audioData.length; i++) {
+            sum += audioData[i] * audioData[i];
+        }
+        return Math.sqrt(sum / audioData.length);
+    },
+    
+    /**
+     * Detect voice activity based on RMS energy with smoothing
+     * @param {number} rmsEnergy - Current RMS energy
+     * @returns {boolean} True if speech is detected
+     */
+    detectVoiceActivity(rmsEnergy) {
+        // Add to energy history for smoothing
+        this.vadEnergyHistory.push(rmsEnergy);
+        if (this.vadEnergyHistory.length > this.vadSmoothingWindow) {
+            this.vadEnergyHistory.shift();
+        }
+        
+        // Calculate smoothed energy (average over window)
+        const smoothedEnergy = this.vadEnergyHistory.reduce((a, b) => a + b, 0) / this.vadEnergyHistory.length;
+        
+        // Detect if current frame has speech
+        const isSpeechFrame = smoothedEnergy > this.vadSensitivity;
+        
+        // Update speech/silence counters
+        if (isSpeechFrame) {
+            this.vadSpeechFrames++;
+            this.vadSilenceFrames = 0;
+        } else {
+            this.vadSilenceFrames++;
+            this.vadSpeechFrames = 0;
+        }
+        
+        // State machine: require multiple consecutive frames to change state
+        if (!this.vadIsSpeaking && this.vadSpeechFrames >= this.vadMinSpeechFrames) {
+            // Start detecting speech
+            this.vadIsSpeaking = true;
+            console.log('VAD: Speech started (energy:', smoothedEnergy.toFixed(4), ')');
+        } else if (this.vadIsSpeaking && this.vadSilenceFrames >= this.vadMinSilenceFrames) {
+            // Stop detecting speech
+            this.vadIsSpeaking = false;
+            console.log('VAD: Speech ended (energy:', smoothedEnergy.toFixed(4), ')');
+        }
+        
+        return this.vadIsSpeaking;
+    },
+    
+    /**
+     * Reset VAD state
+     */
+    resetVAD() {
+        this.vadEnergyHistory = [];
+        this.vadSpeechFrames = 0;
+        this.vadSilenceFrames = 0;
+        this.vadIsSpeaking = false;
+    },
+
+    /**
      * Stop listening
      */
     async stopListening() {
         console.log('stopListening called');
         this.isListening = false;
+        this.resetVAD();
         
         // Close WebSocket
         if (this.ws) {

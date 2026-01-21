@@ -267,6 +267,21 @@
                                 <option value="sage">Sage</option>
                                 <option value="shimmer">Shimmer</option>
                             </select>
+                            
+                            <label for="vad-sensitivity">
+                                Microphone Sensitivity
+                                <span class="settings-help-text">Lower = less sensitive (filters background music)</span>
+                            </label>
+                            <div class="slider-container">
+                                <input type="range" id="vad-sensitivity" class="sensitivity-slider" 
+                                       min="5" max="50" value="15" step="1"
+                                       oninput="voiceAssistant.updateVadSensitivity(this.value); document.getElementById('vad-value').textContent = this.value">
+                                <div class="slider-labels">
+                                    <span>Less</span>
+                                    <span id="vad-value" class="slider-value">15</span>
+                                    <span>More</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
